@@ -3,7 +3,7 @@
 #
 # Needs: brew install llvm lld nsis; cargo install --locked cargo-xwin; rustup target add x86_64-pc-windows-msvc.
 # cargo-xwin downloads the MSVC CRT + Windows SDK on first use and accepts Microsoft's licence for them on your
-# behalf (the owner agreed to this for the 0.6.0 build).
+# behalf. Review the applicable Visual Studio and Build Tools terms before running it.
 #
 # * The Rust executable and static CTranslate2 use +crt-static (/MT). The shared llama/ggml DLLs use /MD:
 #   they pass FILE* between DLLs and must share the CRT's file-descriptor state. Their import libraries do not

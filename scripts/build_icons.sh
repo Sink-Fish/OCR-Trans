@@ -1,23 +1,15 @@
 #!/usr/bin/env bash
 # Regenerate all app / tray icons from the brand SVGs in docs/brand/.
-#   ./scripts/build_icons.sh                 # primary logo
-#   ./scripts/build_icons.sh logo-alt-a      # use an alternative tile (small sizes keep the primary cut)
-#   ./scripts/build_icons.sh option-3        # use “文” glyph option 3 from docs/brand/glyphs/ (tile, small cut, tray)
 # Needs `resvg` (cargo install resvg) and uv (for Pillow, to pack the .ico).
 set -euo pipefail
 cd "$(dirname "$0")/.."
-LOGO="${1:-logo-primary}"
 B=docs/brand
 OUT=src-tauri/icons
 T=$(mktemp -d)
-MAIN="$B/$LOGO.svg"
+trap 'rm -rf "$T"' EXIT
+MAIN="$B/logo-primary.svg"
 SMALL="$B/logo-small.svg"
 TRAY="$B/tray-template.svg"
-if [ -f "$B/glyphs/$LOGO.svg" ]; then
-  MAIN="$B/glyphs/$LOGO.svg"
-  SMALL="$B/glyphs/$LOGO-small.svg"
-  TRAY="$B/glyphs/$LOGO-tray.svg"
-fi
 resvg -w 1024 -h 1024 "$MAIN" "$T/app-1024.png"
 cp "$T/app-1024.png" "$OUT/app-icon.png"
 # icns + all Tauri PNG sizes (+ Windows Square*Logo) from the 1024 master
@@ -36,10 +28,4 @@ imgs[-1].save(out, format="ICO", sizes=[im.size for im in imgs], append_images=i
 PY
 # macOS menu-bar template (black + alpha), 22 pt @2x
 resvg -w 44 -h 44 "$TRAY" "$OUT/tray.png"
-# brand PNG exports
-mkdir -p "$B/png"
-for f in logo-primary logo-alt-a logo-alt-b; do for s in 1024 256 64; do resvg -w $s -h $s "$B/$f.svg" "$B/png/$f-$s.png"; done; done
-for s in 16 32; do resvg -w $s -h $s "$B/logo-small.svg" "$B/png/logo-small-$s.png"; done
-resvg -w 44 -h 44 "$B/tray-template.svg" "$B/png/tray-template-44.png"
-rm -rf "$T"
 echo "icons written to $OUT"

@@ -1,6 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
-  <!-- 16–32 px cut, glyph option 6 -->
-  <rect x="0.5" y="0.5" width="31" height="31" rx="8" fill="#F1FAF5" stroke="#12301F" stroke-opacity="0.12"/>
-  <path d="M5 10.5V7.5a2.5 2.5 0 0 1 2.5-2.5h3M21.5 5h3A2.5 2.5 0 0 1 27 7.5v3M27 21.5v3a2.5 2.5 0 0 1-2.5 2.5h-3M10.5 27h-3A2.5 2.5 0 0 1 5 24.5v-3" fill="none" stroke="#43A67C" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
-  <g transform="translate(0 0) scale(0.03125)" fill="none" stroke="#1F4D3B" stroke-width="58.32000000000001" stroke-linecap="round" stroke-linejoin="round"><path d="M500 312l22 46 M372 414h280 M606 414C590 540 520 640 380 716 M430 470C470 590 548 668 664 712"/></g>
-</svg>

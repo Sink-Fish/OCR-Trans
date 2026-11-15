@@ -32,8 +32,6 @@ OCR Trans includes, links or downloads the third-party components listed below. 
 own licence, reproduced here; those licences (not the OCR Trans licence terms) govern the components, and nothing in
 the OCR Trans terms restricts the rights they grant. The model files are shipped as ordinary, unencrypted files.
 
-Apache License 2.0 §4(d): none of the Apache-2.0 components below ships a NOTICE file (checked: every Rust crate
-in the registry, CTranslate2 and its third-party code, llama.cpp, SentencePiece, PaddleOCR, RapidOCR, Qwen3).
 Microsoft's own notice files for ONNX Runtime and the WebView2 SDK are reproduced in full in their sections.
 The full Apache License 2.0 text appears in the Rust crates section.
 
