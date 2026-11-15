@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <!-- 16–32 px cut, glyph option 5 -->
+  <rect x="0.5" y="0.5" width="31" height="31" rx="8" fill="#F1FAF5" stroke="#12301F" stroke-opacity="0.12"/>
+  <path d="M5 10.5V7.5a2.5 2.5 0 0 1 2.5-2.5h3M21.5 5h3A2.5 2.5 0 0 1 27 7.5v3M27 21.5v3a2.5 2.5 0 0 1-2.5 2.5h-3M10.5 27h-3A2.5 2.5 0 0 1 5 24.5v-3" fill="none" stroke="#43A67C" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M21 11.2 20.9 12.5H19.6Q19.1 14 18.4 15.4Q17.8 16.8 17 17.9Q17.7 18.9 18.5 19.8Q19.4 20.7 20.4 21.6L19.6 22.7Q18.6 21.8 17.7 20.9Q16.8 20 16.2 19Q14.4 21.2 11.6 22.7L11 21.5Q13.7 20 15.4 17.9Q14.7 16.6 14.2 15.3Q13.7 13.9 13.4 12.5H12.2L12.3 11.2H16L16.2 9.5H17.5L17.3 11.2ZM14.7 12.5Q15.2 14.8 16.3 16.7Q17.5 14.9 18.2 12.5Z" fill="#1F4D3B"/>
+</svg>

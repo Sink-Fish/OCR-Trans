@@ -1,0 +1,28 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "All app windows (overlay, pins, popups, settings)",
+  "windows": ["*"],
+  "permissions": [
+    "core:default",
+    "core:window:allow-show",
+    "core:window:allow-hide",
+    "core:window:allow-close",
+    "core:window:allow-set-size",
+    "core:window:allow-set-position",
+    "core:window:allow-set-focus",
+    "core:window:allow-start-dragging",
+    "core:window:allow-set-always-on-top",
+    "core:window:allow-outer-position",
+    "core:window:allow-inner-size",
+    "opener:default",
+    {
+      "identifier": "opener:allow-open-path",
+      "allow": [{ "path": "$APPDATA/models" }, { "path": "$RESOURCE/licenses/*" }]
+    },
+    "clipboard-manager:allow-write-text",
+    "clipboard-manager:allow-write-image",
+    "dialog:default",
+    "autostart:default"
+  ]
+}

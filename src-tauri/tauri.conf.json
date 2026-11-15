@@ -1,0 +1,51 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "OCR Trans",
+  "version": "0.6.4",
+  "identifier": "com.sinkfish.ocrtrans",
+  "build": {
+    "beforeDevCommand": "pnpm dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "pnpm build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [],
+    "macOSPrivateApi": true,
+    "security": {
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' asset: http://asset.localhost shot: http://shot.localhost blob: data:; connect-src 'self' ipc: http://ipc.localhost shot: http://shot.localhost; object-src 'none'; base-uri 'self'; frame-ancestors 'none'",
+      "devCsp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' asset: http://asset.localhost shot: http://shot.localhost blob: data:; connect-src 'self' ipc: http://ipc.localhost shot: http://shot.localhost ws:; object-src 'none'; base-uri 'self'"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": [
+      "app"
+    ],
+    "category": "Productivity",
+    "shortDescription": "离线截图识字 + 翻译",
+    "publisher": "SinkFish",
+    "copyright": "© 2026 SinkFish. Third-party components and models are used under their own licences: licenses/THIRD-PARTY-NOTICES.txt",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "resources": {
+      "../models/ocr/det.onnx": "models/ocr/det.onnx",
+      "../models/ocr/rec.onnx": "models/ocr/rec.onnx",
+      "../models/ocr/dict.txt": "models/ocr/dict.txt",
+      "../models/opus-mt-en-zh/": "models/opus-mt-en-zh/",
+      "icons/tray.png": "icons/tray.png",
+      "licenses/THIRD-PARTY-NOTICES.txt": "licenses/THIRD-PARTY-NOTICES.txt"
+    },
+    "macOS": {
+      "minimumSystemVersion": "13.0",
+      "files": {
+        "Resources/runtime/libonnxruntime.dylib": "../runtime/libonnxruntime.dylib"
+      }
+    }
+  }
+}

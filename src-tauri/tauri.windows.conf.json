@@ -1,0 +1,27 @@
+{
+  "build": {
+    "windows": {
+      "staticVCRuntime": false
+    }
+  },
+  "bundle": {
+    "targets": ["nsis"],
+    "resources": {
+      "../models/ocr/det.onnx": "models/ocr/det.onnx",
+      "../models/ocr/rec.onnx": "models/ocr/rec.onnx",
+      "../models/ocr/dict.txt": "models/ocr/dict.txt",
+      "../models/opus-mt-en-zh/": "models/opus-mt-en-zh/",
+      "../runtime/onnxruntime.dll": "onnxruntime.dll",
+      "icons/tray.png": "icons/tray.png",
+      "licenses/THIRD-PARTY-NOTICES.txt": "licenses/THIRD-PARTY-NOTICES.txt"
+    },
+    "windows": {
+      "nsis": {
+        "installerIcon": "icons/icon.ico",
+        "languages": ["SimpChinese", "English"],
+        "displayLanguageSelector": false,
+        "installerHooks": "windows/installer-hooks.nsh"
+      }
+    }
+  }
+}

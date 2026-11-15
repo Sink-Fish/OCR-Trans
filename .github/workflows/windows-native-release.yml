@@ -1,0 +1,41 @@
+name: Windows x64 release acceptance
+on: workflow_dispatch
+permissions:
+  contents: read
+jobs:
+  release:
+    # Dedicated interactive Windows test account with MSVC x64 tools, Vulkan, LLVM,
+    # Rust, pnpm, Python, 7-Zip and patch on PATH. OCRTRANS_RELEASE_ASSETS contains runtime/ and models/.
+    runs-on: [self-hosted, Windows, X64, ocrtrans-release]
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build native x64 installer
+        shell: pwsh
+        run: ./scripts/build_windows_native.ps1 -Assets $env:OCRTRANS_RELEASE_ASSETS
+      - name: Install candidate and exercise WebView2 and native models
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $version = (Get-Content src-tauri/tauri.conf.json -Raw | ConvertFrom-Json).version
+          $setup = Resolve-Path "release/OCR-Trans_${version}_native_x64-setup.exe"
+          $dest = Join-Path $env:RUNNER_TEMP "ocrtrans-installed-${env:GITHUB_RUN_ID}"
+          $installer = Start-Process -FilePath $setup -ArgumentList "/S /D=$dest" -PassThru -Wait
+          if ($installer.ExitCode -ne 0) { throw "Installer exit $($installer.ExitCode)" }
+          New-Item -ItemType Directory -Force release/native-acceptance | Out-Null
+          python scripts/tests/check_capture_process.py (Join-Path $dest 'ocr-trans.exe') |
+            Set-Content -Encoding utf8NoBOM release/native-acceptance/real-capture.json
+          if ($LASTEXITCODE -ne 0) { throw 'Desktop capture failed' }
+          ./scripts/verify_windows.ps1 -AppPath (Join-Path $dest 'ocr-trans.exe') -ModelsDir "$env:OCRTRANS_RELEASE_ASSETS/models" -Screenshot testdata/en_small.png -OutputDir release/native-acceptance
+          if ($env:OCRTRANS_REQUIRE_GPU -eq '1') {
+            $result = Get-Content release/native-acceptance/result.txt -Raw
+            if ($result -notmatch 'quality-auto PASS \(Vulkan') { throw 'GPU runner did not use Vulkan' }
+          }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: windows-native-acceptance
+          path: |
+            release/native-acceptance/
+            release/native-payload-check.json
+            release/*native_x64-setup.exe

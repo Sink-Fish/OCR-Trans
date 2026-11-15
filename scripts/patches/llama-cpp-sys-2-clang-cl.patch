@@ -1,0 +1,40 @@
+diff -ruN a/Cargo.toml b/Cargo.toml
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -53,7 +53,8 @@
+ common = []
+ cuda = []
+ cuda-no-vmm = ["cuda"]
+-default = ["common"]
++# OCR Trans: llama.cpp's "common" helper library is not used, and built as a DLL for Windows it needs OpenSSL
++default = []
+ dynamic-backends = ["dynamic-link"]
+ dynamic-link = []
+ metal = []
+diff -ruN a/llama.cpp/ggml/src/CMakeLists.txt b/llama.cpp/ggml/src/CMakeLists.txt
+--- a/llama.cpp/ggml/src/CMakeLists.txt
++++ b/llama.cpp/ggml/src/CMakeLists.txt
+@@ -397,6 +397,10 @@
+     endif()
+ 
+     target_link_libraries(${backend} PRIVATE ggml-base)
++    if (WIN32)
++        # the CPU backend reads the processor name from the registry; MSVC links advapi32 by default, clang-cl does not
++        target_link_libraries(${backend} PRIVATE advapi32)
++    endif()
+     target_include_directories(${backend} PRIVATE ..)
+ 
+     if (${BUILD_SHARED_LIBS})
+diff -ruN a/llama.cpp/ggml/src/ggml-cpu/CMakeLists.txt b/llama.cpp/ggml/src/ggml-cpu/CMakeLists.txt
+--- a/llama.cpp/ggml/src/ggml-cpu/CMakeLists.txt
++++ b/llama.cpp/ggml/src/ggml-cpu/CMakeLists.txt
+@@ -337,6 +337,9 @@
+             endif()
+             if (GGML_AVX_VNNI)
+                 list(APPEND ARCH_DEFINITIONS __AVXVNNI__ GGML_AVX_VNNI)
++                if (CMAKE_C_COMPILER_ID STREQUAL "Clang")
++                    list(APPEND ARCH_FLAGS -mavxvnni)
++                endif()
+             endif()
+             if (GGML_BMI2)
+                 # MSVC does not define macro __BMI2__

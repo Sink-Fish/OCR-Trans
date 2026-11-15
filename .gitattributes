@@ -1,0 +1,4 @@
+# Unified patches contain significant single-space context lines. Keep vendor
+# licence texts byte-for-byte rather than normalizing their original whitespace.
+scripts/patches/*.patch -whitespace
+scripts/notices/* -whitespace

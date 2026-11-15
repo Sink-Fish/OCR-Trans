@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- OCR Trans 0.5.0 logo (hand-drawn geometric 文), kept for comparison: soft selection brackets framing a geometric 文. Original artwork, no font glyphs. -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FAFDFB"/>
+      <stop offset="1" stop-color="#E4F3EA"/>
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="125%">
+      <feDropShadow dx="0" dy="12" stdDeviation="14" flood-color="#12301F" flood-opacity="0.15"/>
+    </filter>
+  </defs>
+  <!-- macOS icon grid: 824×824 body centred on a 1024 canvas -->
+  <rect x="100" y="100" width="824" height="824" rx="184" fill="url(#bg)" filter="url(#shadow)"/>
+  <rect x="100.5" y="100.5" width="823" height="823" rx="183.5" fill="none" stroke="#12301F" stroke-opacity="0.07"/>
+  <!-- selection corner brackets, mint -->
+  <g fill="none" stroke="#4FB98C" stroke-width="44" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M262 392V320a58 58 0 0 1 58-58h72"/>
+    <path d="M632 262h72a58 58 0 0 1 58 58v72"/>
+    <path d="M762 632v72a58 58 0 0 1-58 58h-72"/>
+    <path d="M392 762h-72a58 58 0 0 1-58-58v-72"/>
+  </g>
+  <!-- geometric 文: dot, bar, two crossing sweeps -->
+  <g fill="none" stroke="#1F4D3B" stroke-width="52" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M512 330v44"/>
+    <path d="M384 432h256"/>
+    <path d="M598 432C576 560 498 652 384 704"/>
+    <path d="M430 432C452 560 530 652 644 704"/>
+  </g>
+</svg>

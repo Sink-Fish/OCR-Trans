@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 22 22" width="22" height="22">
+  <!-- macOS menu-bar template, glyph option 5: black + alpha only -->
+  <path d="M2.6 7V4.8a2.2 2.2 0 0 1 2.2-2.2H7M15 2.6h2.2a2.2 2.2 0 0 1 2.2 2.2V7M19.4 15v2.2a2.2 2.2 0 0 1-2.2 2.2H15M7 19.4H4.8a2.2 2.2 0 0 1-2.2-2.2V15" fill="none" stroke="#000" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M14.5 7.6 14.4 8.5H13.5Q13.2 9.6 12.7 10.6Q12.3 11.5 11.7 12.3Q12.2 13 12.8 13.6Q13.4 14.3 14.1 14.9L13.5 15.7Q12.8 15.1 12.2 14.4Q11.6 13.8 11.1 13.1Q9.8 14.6 7.9 15.7L7.5 14.9Q9.4 13.8 10.6 12.3Q10.1 11.4 9.7 10.5Q9.4 9.5 9.2 8.5H8.3L8.4 7.6H11L11.2 6.4H12L11.9 7.6ZM10.1 8.5Q10.5 10.1 11.2 11.5Q12 10.2 12.5 8.5Z" fill="#000"/>
+</svg>

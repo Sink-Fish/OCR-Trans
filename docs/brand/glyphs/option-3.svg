@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- OCR Trans logo, glyph option 3: 思源宋体 SemiBold · Source Han Serif. Glyph converted to outlines; no font is shipped. -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FAFDFB"/><stop offset="1" stop-color="#E4F3EA"/></linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="125%"><feDropShadow dx="0" dy="12" stdDeviation="14" flood-color="#12301F" flood-opacity="0.15"/></filter>
+  </defs>
+  <rect x="100" y="100" width="824" height="824" rx="184" fill="url(#bg)" filter="url(#shadow)"/>
+  <rect x="100.5" y="100.5" width="823" height="823" rx="183.5" fill="none" stroke="#12301F" stroke-opacity="0.07"/>
+  <path d="M262 392V320a58 58 0 0 1 58-58h72M632 262h72a58 58 0 0 1 58 58v72M762 632v72a58 58 0 0 1-58 58h-72M392 762h-72a58 58 0 0 1-58-58v-72" fill="none" stroke="#4FB98C" stroke-width="44" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M467.6 321.7 463.8 324.6C484.4 343 506.6 373.6 512.8 399.6C554.3 427.6 585.7 343.5 467.6 321.7ZM584 426.4C572.7 484.2 549.7 535.7 512.4 580.1C467.2 541.5 433.3 491.3 414.4 426.4ZM655.6 379.9 629.7 414.2H318.9L322.7 426.4H406C422 501.3 450.4 559.1 490.2 603.9C447.5 645.8 390.5 679.8 316 704.5L318.5 710.3C400.2 692.3 463.4 663.8 511.6 626.1C552.6 664.3 603.7 691.1 663.6 709.9C671.1 689.4 686.6 676.8 706.7 674.7L708 669.7C645.2 655.9 587.8 633.7 540.1 601C587.8 553.7 617.5 495.1 633.9 426.4H691.2C697.5 426.4 701.3 424.3 702.6 419.7C685.4 403.3 655.6 379.9 655.6 379.9Z" fill="#1F4D3B"/>
+</svg>

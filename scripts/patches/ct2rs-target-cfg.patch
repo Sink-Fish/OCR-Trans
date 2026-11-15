@@ -1,0 +1,79 @@
+diff -ruN a/CTranslate2/third_party/ruy/third_party/cpuinfo/src/cpuinfo/utils.h b/CTranslate2/third_party/ruy/third_party/cpuinfo/src/cpuinfo/utils.h
+--- a/CTranslate2/third_party/ruy/third_party/cpuinfo/src/cpuinfo/utils.h
++++ b/CTranslate2/third_party/ruy/third_party/cpuinfo/src/cpuinfo/utils.h
+@@ -2,6 +2,10 @@
+ 
+ #include <stdint.h>
+ 
++#ifdef _MSC_VER
++	#include <intrin.h> /* _BitScanReverse: clang-cl, unlike cl.exe, needs the declaration */
++#endif
++
+ 
+ inline static uint32_t bit_length(uint32_t n) {
+ 	const uint32_t n_minus_1 = n - 1;
+diff -ruN a/build.rs b/build.rs
+--- a/build.rs
++++ b/build.rs
+@@ -40,17 +40,15 @@
+         Err(env::VarError::NotPresent) => (),
+         Err(err) => panic!("CMAKE_PARALLEL format error: {:?}", err),
+     }
+-    let os = if cfg!(target_os = "windows") {
+-        Os::Win
+-    } else if cfg!(target_os = "macos") {
+-        Os::Mac
+-    } else if cfg!(target_os = "linux") {
+-        Os::Linux
+-    } else {
+-        Os::Unknown
++    // the TARGET's OS/arch (cfg! in a build script describes the host, which breaks cross-compiling)
++    let os = match env::var("CARGO_CFG_TARGET_OS").as_deref() {
++        Ok("windows") => Os::Win,
++        Ok("macos") => Os::Mac,
++        Ok("linux") => Os::Linux,
++        _ => Os::Unknown,
+     };
+ 
+-    let aarch64 = cfg!(target_arch = "aarch64");
++    let aarch64 = env::var("CARGO_CFG_TARGET_ARCH").as_deref() == Ok("aarch64");
+ 
+     let cuda = cfg!(feature = "cuda");
+     let cudnn = cfg!(feature = "cudnn");
+@@ -415,24 +413,24 @@
+     .compile("ct2rs");
+ }
+ 
+-#[cfg(not(target_os = "windows"))]
+-fn is_library(name: &&str) -> bool {
+-    name.starts_with("lib") && name.ends_with(".a")
++fn target_is_msvc() -> bool {
++    env::var("CARGO_CFG_TARGET_ENV").as_deref() == Ok("msvc")
+ }
+ 
+-#[cfg(not(target_os = "windows"))]
+-fn library_name(name: &str) -> &str {
+-    &name[3..name.len() - 2]
+-}
+-
+-#[cfg(target_os = "windows")]
+ fn is_library(name: &&str) -> bool {
+-    name.ends_with(".lib")
++    if target_is_msvc() {
++        name.ends_with(".lib")
++    } else {
++        name.starts_with("lib") && name.ends_with(".a")
++    }
+ }
+ 
+-#[cfg(target_os = "windows")]
+ fn library_name(name: &str) -> &str {
+-    &name[0..name.len() - 4]
++    if target_is_msvc() {
++        &name[0..name.len() - 4]
++    } else {
++        &name[3..name.len() - 2]
++    }
+ }
+ 
+ fn link_libraries<T: AsRef<Path>>(root: T) {

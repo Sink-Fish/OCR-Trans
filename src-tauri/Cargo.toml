@@ -1,0 +1,49 @@
+[package]
+name = "ocr-trans"
+version = "0.6.4"
+description = "Offline screenshot OCR + translation"
+authors = ["SinkFish"]
+edition = "2021"
+license = "LicenseRef-OCR-Trans-Noncommercial-1.0"
+publish = false
+
+[lib]
+name = "ocr_trans_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[target.'cfg(target_os = "macos")'.build-dependencies]
+cc = "1"
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon", "image-png", "macos-private-api"] }
+tauri-plugin-opener = "2"
+tauri-plugin-global-shortcut = "2"
+tauri-plugin-clipboard-manager = "2"
+tauri-plugin-dialog = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+anyhow = "1"
+image = "0.25"
+reqwest = { version = "0.12", features = ["stream"] }
+futures-util = "0.3"
+tokio = { version = "1", features = ["time", "signal"] }
+sha2 = "0.10"
+ocrtrans-core = { path = "../crates/core", default-features = false }
+tauri-plugin-autostart = "2"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = "0.6"
+objc2-foundation = { version = "0.3", default-features = false, features = ["NSString"] }
+objc2-app-kit = { version = "0.3", default-features = false, features = ["NSRunningApplication"] }
+
+[target.'cfg(target_os = "windows")'.dependencies]
+windows-sys = { version = "0.59", features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging"] }
+
+[features]
+# native translation backends; `cargo check --no-default-features` type-checks the app without C++ toolchains
+default = ["nmt", "llm"]
+nmt = ["ocrtrans-core/nmt"]
+llm = ["ocrtrans-core/llm"]

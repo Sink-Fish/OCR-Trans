@@ -1,0 +1,203 @@
+/*
+ * OCR Trans design tokens (v0.5 “mint”) — the single source of truth for colour, type, radius, elevation and motion.
+ * Fresh light green on warm, faintly green off-white; deep green for text/contrast; dark mode in deep green-greys.
+ * Light/dark follow the system; `<html data-theme="light|dark">` forces one (dev flag OCRTRANS_THEME).
+ * Component styles (styles.css) only use these variables.
+ *
+ * Contrast (WCAG AA): primary buttons use deep-green text on mint (#0f3b2a on #8fd3b0 = 7.2:1); accent text on
+ * light surfaces uses --accent-text (#2b7a57 on #fbfcf9 = 5.0:1); dark mode accent text #7fd7b0 on #18211c = 9.6:1.
+ */
+:root {
+  /* mint scale */
+  --mint-50: #f1faf5;
+  --mint-100: #e2f5ea;
+  --mint-200: #c8ecd8;
+  --mint-300: #a9e0c3;
+  --mint-400: #8fd3b0;
+  --mint-500: #6cc9a1;
+  --mint-600: #43a67c;
+  --mint-700: #2b7a57;
+  --mint-800: #1f5a41;
+  --mint-900: #0f3b2a;
+
+  /* green-tinted neutrals (warm off-white → deep green-grey) */
+  --sage-0: #fdfefc;
+  --sage-25: #fbfcf9;
+  --sage-50: #f6f8f3;
+  --sage-100: #eef3ec;
+  --sage-150: #e6ede3;
+  --sage-200: #dbe5d8;
+  --sage-300: #c3d1c0;
+  --sage-400: #9eae9f;
+  --sage-500: #7a8b7f;
+  --sage-600: #5a6b61;
+  --sage-700: #3f4e45;
+  --sage-800: #2a3731;
+  --sage-850: #212c27;
+  --sage-900: #18211c;
+  --sage-950: #111814;
+
+  --amber-500: #c08a2e;
+  --red-500: #cf5a4e;
+
+  /* semantic — light */
+  --bg: var(--sage-50);
+  --bg-grad: linear-gradient(180deg, #f8faf5 0%, #f1f6ef 100%);
+  --surface: var(--sage-25);
+  --surface-2: var(--sage-100);
+  --surface-sunken: var(--sage-150);
+  --surface-hover: #edf4ee;
+  --text: #1e2a24;
+  --text-2: var(--sage-600);
+  --text-3: var(--sage-500);
+  --border: var(--sage-200);
+  --border-strong: var(--sage-300);
+  --accent: var(--mint-500);
+  --accent-strong: var(--mint-600);
+  --accent-text: var(--mint-700);
+  --accent-btn: var(--mint-400);
+  --accent-btn-hover: var(--mint-500);
+  --accent-fg: var(--mint-900);
+  --accent-soft: var(--mint-100);
+  --accent-soft-fg: var(--mint-800);
+  --ok: var(--mint-700);
+  --warn: var(--amber-500);
+  --danger: var(--red-500);
+  --focus-ring: 0 0 0 3px rgba(108, 201, 161, 0.35);
+  --toggle-off: var(--sage-300);
+
+  /* floating chrome over screenshots (overlay hint & action bar, pin toolbar, toasts): soft deep-green glass */
+  --chrome-bg: rgba(22, 34, 28, 0.78);
+  --chrome-bg-solid: rgba(22, 34, 28, 0.92);
+  --chrome-fg: #f1f7f3;
+  --chrome-fg-2: #a9bcb1;
+  --chrome-hover: rgba(255, 255, 255, 0.1);
+  --chrome-active: rgba(108, 201, 161, 0.28);
+  --chrome-active-fg: #bff0d8;
+  --chrome-border: rgba(255, 255, 255, 0.1);
+  --chrome-sep: rgba(255, 255, 255, 0.14);
+  --chrome-blur: saturate(160%) blur(18px);
+
+  /* selection overlay */
+  --overlay-dim: rgba(14, 24, 19, 0.28);
+  --overlay-dim-outside: rgba(14, 24, 19, 0.36);
+  --selection: var(--mint-500);
+
+  /* frame around the selection and around pins: a mint line plus a faint dark hairline outside it, so it reads on
+     white, light-green and mint backgrounds alike. Same width on every side; 1.5 px = 3 device px on Retina. */
+  --frame-w: 2px;
+  --frame-color: var(--selection);
+  --frame-halo: 0 0 0 1px rgba(14, 24, 19, 0.34);
+
+  /* type: system fonts only */
+  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Hiragino Sans GB", "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
+  --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", "PingFang SC", "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --text-xs: 11px;
+  --text-sm: 12px;
+  --text-md: 13px;
+  --text-lg: 15px;
+  --text-xl: 18px;
+  --text-2xl: 24px;
+  --leading: 1.55;
+
+  /* shape */
+  --radius-xs: 6px;
+  --radius-sm: 10px;
+  --radius: 12px;
+  --radius-lg: 16px;
+  --radius-pill: 999px;
+  --hairline: 1px solid var(--border);
+
+  /* elevation: soft, layered, slightly green-tinted */
+  --shadow-1: 0 1px 2px rgba(20, 45, 32, 0.05), 0 1px 1px rgba(20, 45, 32, 0.03);
+  --shadow-2: 0 2px 6px rgba(20, 45, 32, 0.06), 0 8px 24px rgba(20, 45, 32, 0.07);
+  --shadow-3: 0 6px 16px rgba(8, 20, 14, 0.16), 0 18px 48px rgba(8, 20, 14, 0.2);
+  --shadow-lift: 0 4px 10px rgba(20, 45, 32, 0.1), 0 12px 28px rgba(20, 45, 32, 0.08);
+
+  /* motion */
+  --dur-fast: 120ms;
+  --dur: 150ms;
+  --dur-slow: 240ms;
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+  --ease-spring: cubic-bezier(0.34, 1.4, 0.64, 1);
+
+  /* spacing (4 px grid) */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 24px;
+  --s-6: 32px;
+  --s-7: 40px;
+
+  color-scheme: light;
+}
+
+@media (min-resolution: 2dppx) {
+  :root {
+    --frame-w: 1.5px;
+  }
+}
+
+/* dark: deep green-greys, same mint accent. Applied by the system setting (unless forced light) or data-theme. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: var(--sage-950);
+    --bg-grad: linear-gradient(180deg, #131b17 0%, #101613 100%);
+    --surface: var(--sage-900);
+    --surface-2: var(--sage-850);
+    --surface-sunken: #141c18;
+    --surface-hover: var(--sage-800);
+    --text: #e6efe9;
+    --text-2: #98a99f;
+    --text-3: #77887e;
+    --border: #2a3832;
+    --border-strong: #37483f;
+    --accent: var(--mint-500);
+    --accent-strong: var(--mint-400);
+    --accent-text: #7fd7b0;
+    --accent-btn: var(--mint-500);
+    --accent-btn-hover: var(--mint-400);
+    --accent-fg: #0b2a1d;
+    --accent-soft: rgba(108, 201, 161, 0.14);
+    --accent-soft-fg: #a9e6c9;
+    --ok: #7fd7b0;
+    --warn: #e0b45c;
+    --danger: #ec7f73;
+    --toggle-off: #3c4c44;
+    --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.3);
+    --shadow-2: 0 2px 6px rgba(0, 0, 0, 0.28), 0 8px 24px rgba(0, 0, 0, 0.3);
+    --shadow-lift: 0 4px 10px rgba(0, 0, 0, 0.3), 0 12px 28px rgba(0, 0, 0, 0.32);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: var(--sage-950);
+  --bg-grad: linear-gradient(180deg, #131b17 0%, #101613 100%);
+  --surface: var(--sage-900);
+  --surface-2: var(--sage-850);
+  --surface-sunken: #141c18;
+  --surface-hover: var(--sage-800);
+  --text: #e6efe9;
+  --text-2: #98a99f;
+  --text-3: #77887e;
+  --border: #2a3832;
+  --border-strong: #37483f;
+  --accent: var(--mint-500);
+  --accent-strong: var(--mint-400);
+  --accent-text: #7fd7b0;
+  --accent-btn: var(--mint-500);
+  --accent-btn-hover: var(--mint-400);
+  --accent-fg: #0b2a1d;
+  --accent-soft: rgba(108, 201, 161, 0.14);
+  --accent-soft-fg: #a9e6c9;
+  --ok: #7fd7b0;
+  --warn: #e0b45c;
+  --danger: #ec7f73;
+  --toggle-off: #3c4c44;
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-2: 0 2px 6px rgba(0, 0, 0, 0.28), 0 8px 24px rgba(0, 0, 0, 0.3);
+  --shadow-lift: 0 4px 10px rgba(0, 0, 0, 0.3), 0 12px 28px rgba(0, 0, 0, 0.32);
+  color-scheme: dark;
+}
