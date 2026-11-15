@@ -121,7 +121,13 @@ pub fn overlay_keys(app: &AppHandle) {
     check("lost hotkey registration is restored without restart", recovered, String::new());
 
     #[cfg(target_os = "macos")]
-    {
+    if crate::isolated_menu_bar_profile() {
+        let absent = crate::on_main_thread(app, |app| {
+            crate::check_status_item(app, true);
+            app.tray_by_id("main").is_none()
+        }).unwrap_or(false);
+        check("isolated profile has no system menu item after reopen", absent, String::new());
+    } else {
         let recovered = crate::on_main_thread(app, |app| {
             let tray = app.tray_by_id("main")?;
             tray.set_visible(false).ok()?;

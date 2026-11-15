@@ -1,5 +1,6 @@
 param([string]$AppPath, [string]$ModelsDir, [string]$Screenshot, [switch]$FastOnly,
-      [string]$OutputDir = (Join-Path ([Environment]::GetFolderPath('Desktop')) 'OCRTrans-release-check'))
+      [string]$OutputDir = (Join-Path ([Environment]::GetFolderPath('Desktop')) 'OCRTrans-release-check'),
+      [string]$ExpectedVersion = '0.6.5')
 $ErrorActionPreference = 'Stop'
 if (!$AppPath) {
     $running = Get-Process -Name ocr-trans -ErrorAction SilentlyContinue | Select-Object -First 1
@@ -14,8 +15,12 @@ if (!$AppPath) {
 }
 $AppPath = (Resolve-Path -LiteralPath $AppPath).Path
 $version = [Diagnostics.FileVersionInfo]::GetVersionInfo($AppPath).ProductVersion
-if ($version -notmatch '^0\.6\.4(?:\.|$)') { throw "Expected 0.6.4, found $version at $AppPath" }
-if (!$Screenshot) { $Screenshot = Join-Path $PSScriptRoot 'en_small.png' }
+$versionPattern = '^' + [regex]::Escape($ExpectedVersion) + '(?:\.0)?$'
+if ($version -notmatch $versionPattern) { throw "Expected $ExpectedVersion, found $version at $AppPath" }
+if (!$Screenshot) {
+    $Screenshot = Join-Path $PSScriptRoot 'en_small.png'
+    if (!(Test-Path -LiteralPath $Screenshot)) { $Screenshot = Join-Path $PSScriptRoot '../testdata/en_small.png' }
+}
 $Screenshot = (Resolve-Path -LiteralPath $Screenshot).Path
 if (!$ModelsDir -and $FastOnly) { $ModelsDir = Join-Path (Split-Path $AppPath) 'models' }
 if (!$ModelsDir) {

@@ -6,7 +6,7 @@ OCR Trans 是适用于 macOS 和 Windows 的离线截图识字与翻译工具。
 
 ## 安装
 
-目前已公开 [v0.6.4 源码](https://github.com/Sink-Fish/OCR-Trans/tree/v0.6.4)。首个安装包正在准备，发布后可从 [Releases](https://github.com/Sink-Fish/OCR-Trans/releases) 下载。
+从 [Releases](https://github.com/Sink-Fish/OCR-Trans/releases) 选择已发布的版本。各平台的安装方式如下。
 
 | 平台 | 安装文件 | 首次使用 |
 | --- | --- | --- |

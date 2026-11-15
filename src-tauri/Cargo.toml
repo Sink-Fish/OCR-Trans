@@ -1,6 +1,6 @@
 [package]
 name = "ocr-trans"
-version = "0.6.4"
+version = "0.6.5"
 description = "Offline screenshot OCR + translation"
 authors = ["SinkFish"]
 edition = "2021"

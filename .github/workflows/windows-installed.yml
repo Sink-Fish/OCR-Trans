@@ -37,4 +37,4 @@ jobs:
           $dest = Join-Path $env:RUNNER_TEMP 'OCRTransInstalled'
           $setup = Start-Process "$env:RUNNER_TEMP/$name" -ArgumentList "/S /D=$dest" -PassThru -Wait
           if ($setup.ExitCode -ne 0) { throw "Installer exited $($setup.ExitCode)" }
-          ./scripts/verify_windows.ps1 -AppPath "$dest/ocr-trans.exe" -ModelsDir "$dest/models" -FastOnly -Screenshot testdata/en_small.png -OutputDir "$env:RUNNER_TEMP/ocrtrans-result"
+          ./scripts/verify_windows.ps1 -ExpectedVersion $version -AppPath "$dest/ocr-trans.exe" -ModelsDir "$dest/models" -FastOnly -Screenshot testdata/en_small.png -OutputDir "$env:RUNNER_TEMP/ocrtrans-result"

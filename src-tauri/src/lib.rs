@@ -67,7 +67,18 @@ pub fn refresh_tray(app: &tauri::AppHandle) {
     }
 }
 
+// Test profiles isolate files and shortcuts, but AppKit assigns menu items by bundle ID.
+// Never give a parallel test process a status item belonging to the installed application.
+#[cfg(target_os = "macos")]
+fn isolated_menu_bar_profile() -> bool {
+    std::env::var_os("OCRTRANS_TEST_PROFILE").is_some()
+}
+
 fn build_tray(app: &tauri::AppHandle) -> tauri::Result<()> {
+    #[cfg(target_os = "macos")]
+    if isolated_menu_bar_profile() {
+        return Ok(());
+    }
     let menu = tray_menu(app)?;
     let mut icon = app.default_window_icon().cloned();
     // (joined component by component: "icons/tray.png" in one piece kept its "/" in a Windows path)
@@ -115,6 +126,9 @@ fn name_status_item(tray: &tauri::tray::TrayIcon) -> tauri::Result<()> {
 
 #[cfg(target_os = "macos")]
 fn check_status_item(app: &tauri::AppHandle, reopen: bool) {
+    if isolated_menu_bar_profile() {
+        return;
+    }
     let result = (|| -> tauri::Result<()> {
         let Some(tray) = app.tray_by_id("main") else {
             return build_tray(app);
