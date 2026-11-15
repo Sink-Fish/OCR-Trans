@@ -17,7 +17,7 @@ OCR Trans 是一个离线的截图识字 + 翻译小工具：按一个快捷键�
 
 ### Windows
 
-运行 `OCR-Trans_0.6.5_x64-setup.exe`，按提示安装。安装程序会检查 WebView2 和应用启动所需的 Microsoft Visual C++ 运行库，缺少时提示安装。若缺少 Visual C++ x64 运行库，请按提示从微软官方网站获取。
+本次发布提供 macOS 安装包。Windows x64 安装包将在后续提供，发布后可按提示安装。安装程序会检查 WebView2 和应用启动所需的 Microsoft Visual C++ 运行库，缺少时提示安装。若缺少 Visual C++ x64 运行库，请按提示从微软官方网站获取。
 
 ---
 

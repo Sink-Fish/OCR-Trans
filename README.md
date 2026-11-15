@@ -6,12 +6,14 @@ OCR Trans 是适用于 macOS 和 Windows 的离线截图识字与翻译工具。
 
 ## 安装
 
-从 [Releases](https://github.com/Sink-Fish/OCR-Trans/releases) 选择已发布的版本。各平台的安装方式如下。
+[下载 macOS 0.6.5 安装包](https://github.com/Sink-Fish/OCR-Trans/releases/download/v0.6.5/OCR-Trans_0.6.5_arm64.dmg) · [发布说明、源码与 SHA-256 校验文件](https://github.com/Sink-Fish/OCR-Trans/releases/tag/v0.6.5)
+
+本次发布提供 Apple Silicon Mac 安装包和对应源码。Windows x64 安装包待发布。
 
 | 平台 | 安装文件 | 首次使用 |
 | --- | --- | --- |
 | macOS 13 及以上，Apple 芯片 | `arm64.dmg` | 将 OCR Trans 拖入“应用程序”后打开，并授予屏幕录制权限。当前分发包使用本地签名，未经 Apple 公证。 |
-| Windows x64 | `x64-setup.exe` | 运行安装程序。缺少 Visual C++ x64 运行库时，按提示从微软官方下载后重新安装。当前分发包未经 Authenticode 签名。 |
+| Windows x64 | 待发布 | Windows 版使用 WebView2 和 Microsoft Visual C++ x64 运行库。 |
 
 ## 快速使用
 
