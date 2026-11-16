@@ -8,12 +8,12 @@ OCR Trans 是适用于 macOS 和 Windows 的离线截图识字与翻译工具。
 
 [下载 macOS 0.6.5 安装包](https://github.com/Sink-Fish/OCR-Trans/releases/download/v0.6.5/OCR-Trans_0.6.5_arm64.dmg) · [发布说明、源码与 SHA-256 校验文件](https://github.com/Sink-Fish/OCR-Trans/releases/tag/v0.6.5)
 
-本次发布提供 Apple Silicon Mac 安装包和对应源码。Windows x64 安装包待发布。
+已发布的 0.6.5 提供 Apple Silicon Mac 安装包、Windows x64 未签名安装包和对应源码。Windows GUI 安装、启动、截图和钉图流程尚未完成验证，详见发布说明。**0.6.5 现有下载文件仍包含发布时的非商业许可；下文 GPL-3.0-only 适用于本分支许可迁移后的自有材料，不代表旧安装包已被重新打包或替换。**
 
 | 平台 | 安装文件 | 首次使用 |
 | --- | --- | --- |
 | macOS 13 及以上，Apple 芯片 | `arm64.dmg` | 将 OCR Trans 拖入“应用程序”后打开，并授予屏幕录制权限。当前分发包使用本地签名，未经 Apple 公证。 |
-| Windows x64 | 待发布 | Windows 版使用 WebView2 和 Microsoft Visual C++ x64 运行库。 |
+| Windows x64 | [未签名 EXE](https://github.com/Sink-Fish/OCR-Trans/releases/download/v0.6.5/OCR-Trans_0.6.5_native_x64-setup.exe) | Windows 版使用 WebView2 和 Microsoft Visual C++ x64 运行库。 |
 
 ## 快速使用
 
@@ -43,6 +43,6 @@ python3 -m unittest discover -s scripts/tests
 
 ## 使用许可与反馈
 
-官方安装包免费下载。自有代码和文档允许非商业使用、修改和免费再分发。企业内部业务使用、收费销售、集成到商业产品或提供商业服务，均须事先取得 SinkFish 的书面授权。非官方修改版须标明发布者。模型、字体及其他第三方组件适用各自的许可。[项目许可](LICENSE) · [第三方清单](docs/LICENSE_INVENTORY.md)
+© 2026 SinkFish。本分支中 SinkFish 有权授权的自有代码、文档和测试材料采用 **GNU GPL 第 3 版，仅限该版本（SPDX: GPL-3.0-only）**。允许商业使用和收费分发，不再附加“禁止商用”或“商业用途须另行授权”的限制。分发本软件或衍生作品时须遵守 GPL 的许可证、版权声明及对应源码提供等义务；修改版应标明修改。第三方代码、模型、运行库、字体和图稿中的上游材料仍适用各自许可，不因本项目迁移而被重新授权。名称与标识不授予商标权或官方背书。[GPL 全文](LICENSE) · [适用范围与版本边界](docs/LICENSING.md) · [第三方清单](docs/LICENSE_INVENTORY.md)
 
-问题反馈和商业授权联系请使用 [GitHub Issues](https://github.com/Sink-Fish/OCR-Trans/issues)。提交问题时请注明应用版本、操作系统和复现步骤，并先遮盖日志或截图中的私人内容。
+问题反馈请使用 [GitHub Issues](https://github.com/Sink-Fish/OCR-Trans/issues)。提交问题时请注明应用版本、操作系统和复现步骤，并先遮盖日志或截图中的私人内容。

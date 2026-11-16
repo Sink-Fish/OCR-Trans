@@ -1,6 +1,6 @@
 # 第三方组件与许可
 
-OCR Trans 的非商业许可适用于 SinkFish 有权授权的材料。第三方组件继续适用各自的许可，使用者可依上游条款单独使用这些组件。安装包内的 `licenses/THIRD-PARTY-NOTICES.txt` 包含许可证、署名、适用声明及源码获取地址。也可以在“设置 → 关于”中查看。[声明全文](../src-tauri/licenses/THIRD-PARTY-NOTICES.txt)
+本分支许可迁移后的 OCR Trans 自有材料采用 GPL-3.0-only，仅适用于 SinkFish 有权授权的部分；已发布 0.6.5 文件的许可不随此文档变更。范围和版本边界见 [许可说明](LICENSING.md)。第三方组件继续适用各自的许可，使用者可依上游条款单独使用这些组件。安装包内的 `licenses/THIRD-PARTY-NOTICES.txt` 包含许可证、署名、适用声明及源码获取地址。也可以在“设置 → 关于”中查看。[声明全文](../src-tauri/licenses/THIRD-PARTY-NOTICES.txt)
 
 ## 模型与数据
 

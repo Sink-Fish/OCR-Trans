@@ -2,7 +2,7 @@
   "name": "ocr-trans",
   "private": true,
   "version": "0.6.5",
-  "license": "SEE LICENSE IN LICENSE",
+  "license": "GPL-3.0-only",
   "type": "module",
   "scripts": {
     "dev": "vite",

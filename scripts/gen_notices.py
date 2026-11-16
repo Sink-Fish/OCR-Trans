@@ -26,7 +26,9 @@ HEADER = """\
 OCR Trans — third-party notices
 ===============================
 
-OCR Trans © 2026 SinkFish. Original material is available under the OCR Trans Noncommercial License 1.0 above.
+OCR Trans © 2026 SinkFish. Project-owned code, documentation and test material in this licensing revision
+are licensed under GNU GPL version 3 only (SPDX: GPL-3.0-only); see the full text above and docs/LICENSING.md.
+Project-owned artwork is also GPL-3.0-only; third-party material and trademarks retain their separate terms. Published 0.6.5 artifacts are unchanged.
 
 OCR Trans includes, links or downloads the third-party components listed below. Each component is used under its
 own licence, reproduced here; those licences (not the OCR Trans licence terms) govern the components, and nothing in

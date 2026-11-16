@@ -57,14 +57,22 @@ test("the notices are complete: header licences, MPL sources, patents", () => {
   assert.ok(read("docs/LICENSE_INVENTORY.md").includes("scripts/gen_notices.py"));
 });
 
-test("the public source and installed notices carry the noncommercial terms", () => {
-  assert.equal(JSON.parse(read("package.json")).license, "SEE LICENSE IN LICENSE");
+test("the current source and notices consistently use GPL-3.0-only", () => {
+  assert.equal(JSON.parse(read("package.json")).license, "GPL-3.0-only");
   for (const toml of ["src-tauri/Cargo.toml", "crates/core/Cargo.toml"]) {
-    assert.match(read(toml), /^license = "LicenseRef-OCR-Trans-Noncommercial-1.0"$/m, toml);
+    assert.match(read(toml), /^license = "GPL-3.0-only"$/m, toml);
   }
   const terms = read("LICENSE").trim();
-  assert.match(terms, /企业内部业务/);
+  assert.match(terms, /GNU GENERAL PUBLIC LICENSE/);
+  assert.match(terms, /Version 3, 29 June 2007/);
+  assert.match(terms, /END OF TERMS AND CONDITIONS/);
   assert.ok(read("src-tauri/licenses/THIRD-PARTY-NOTICES.txt").includes(terms));
+  for (const file of ["README.md", "docs/LICENSING.md", "docs/brand/LICENSES.md", "docs/LICENSE_INVENTORY.md", "src/views/Settings.tsx", "scripts/gen_notices.py"]) {
+    assert.ok(read(file).includes("GPL-3.0-only"), file);
+    assert.doesNotMatch(read(file), /LicenseRef-OCR-Trans-Noncommercial-1\.0|Original material is available under the OCR Trans Noncommercial License/);
+  }
+  assert.match(read("docs/LICENSING.md"), /v0\.6\.5/);
+  assert.match(read("docs/LICENSING.md"), /不改写标签、不替换旧包/);
 });
 
 test("the Windows installer requires the shared Visual C++ runtime before installing the app", () => {

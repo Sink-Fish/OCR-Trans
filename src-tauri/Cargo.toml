@@ -4,7 +4,7 @@ version = "0.6.5"
 description = "Offline screenshot OCR + translation"
 authors = ["SinkFish"]
 edition = "2021"
-license = "LicenseRef-OCR-Trans-Noncommercial-1.0"
+license = "GPL-3.0-only"
 publish = false
 
 [lib]

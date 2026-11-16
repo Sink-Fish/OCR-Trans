@@ -397,7 +397,7 @@ function About({ version, onError }: { version?: string; onError: (m: string) =>
         </ul>
       </div>
       <CardTitle icon="info">项目与第三方许可</CardTitle>
-      <p>OCR Trans 两端免费下载。自有材料允许非商业使用，企业内部业务及其他商业用途须先获 SinkFish 书面授权。</p>
+      <p>本源码修订的自有代码、文档和测试材料采用 GPL-3.0-only，允许商业使用与收费分发，分发时须遵守对应源码提供等许可义务。自有图稿同样采用 GPL-3.0-only，第三方材料与字体保留各自许可，名称不授予官方背书；旧版 0.6.5 已发布包仍保留原许可。</p>
       <div className="card">
         <ul className="small">
           <li>
