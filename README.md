@@ -6,6 +6,8 @@ OCR Trans 是适用于 macOS 和 Windows 的离线截图识字与翻译工具。
 
 ## 安装
 
+当前源码版本为 **0.6.6（GPL-3.0-only）**，双端安装包正在构建；下面的 0.6.5 链接是旧许可历史版本。请以对应 Release 的说明和校验清单为准。
+
 [下载 macOS 0.6.5 安装包](https://github.com/Sink-Fish/OCR-Trans/releases/download/v0.6.5/OCR-Trans_0.6.5_arm64.dmg) · [发布说明、源码与 SHA-256 校验文件](https://github.com/Sink-Fish/OCR-Trans/releases/tag/v0.6.5)
 
 已发布的 0.6.5 提供 Apple Silicon Mac 安装包、Windows x64 未签名安装包和对应源码。Windows GUI 安装、启动、截图和钉图流程尚未完成验证，详见发布说明。**0.6.5 现有下载文件仍包含发布时的非商业许可；下文 GPL-3.0-only 适用于本分支许可迁移后的自有材料，不代表旧安装包已被重新打包或替换。**
