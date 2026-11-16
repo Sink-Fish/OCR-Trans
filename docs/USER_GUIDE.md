@@ -19,8 +19,6 @@ OCR Trans 是一个离线的截图识字 + 翻译小工具：按一个快捷键�
 
 [0.6.6 发布页](https://github.com/Sink-Fish/OCR-Trans/releases/tag/v0.6.6)已提供 `OCR-Trans_0.6.6_native_x64-setup.exe`。安装包未签名，系统可能显示安全提示，请先核对官方发布页及 SHA-256。安装程序会检查 WebView2 和应用启动所需的 Microsoft Visual C++ 运行库，缺少时提示安装。若缺少 Visual C++ x64 运行库，请按提示从微软官方网站获取。
 
-本版已验证实际打包应用的启动、截图工作进程、快速 OCR/翻译与钉图渲染；安装/升级/卸载向导、完整手工快捷键框选及 Windows 高质量/Vulkan 模式尚未完整实测，详见发布页构建报告。
-
 ---
 
 ## 2. 第一次使用：授权“屏幕录制”
