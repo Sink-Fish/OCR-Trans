@@ -47,7 +47,7 @@ python3 -m unittest discover -s scripts/tests
 
 ### 发布版本的对应源码
 
-[0.6.6 发布页](https://github.com/Sink-Fish/OCR-Trans/releases/tag/v0.6.6)提供固定提交的应用源码 ZIP、Cargo 依赖源码、前端运行时与上游源码、`SOURCE-SUPPLY.md` 和校验清单。ONNX Runtime 的固定源码、子模块及外部依赖获取方法见该说明。源码获取可能需要联网，不承诺完全离线或字节一致重建。
+[0.6.6 发布页](https://github.com/Sink-Fish/OCR-Trans/releases/tag/v0.6.6)提供固定提交的应用源码 ZIP、Cargo 依赖源码、前端运行时与上游源码、`SOURCE-SUPPLY.md` 和校验清单。ONNX Runtime 的固定源码、子模块及外部依赖获取方法见该说明。源码获取可能需要联网。
 
 Cargo 源包内的 `ot66-vendor-config.txt` 是配置示例：使用时将 `[source.vendored-sources]` 的 `directory` 改为你解压后 `cargo` 目录的实际路径，不要直接沿用构建机路径。Windows 的具体工具版本及 `pnpm.cmd` 引号转义兼容操作见 Windows 构建报告。
 
