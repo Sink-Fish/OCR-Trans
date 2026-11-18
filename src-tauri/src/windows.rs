@@ -14,6 +14,13 @@ use crate::state::{state, LockExt, Mode, Pin, Shot};
 
 #[cfg(target_os = "macos")]
 mod mac {
+    extern "C" {
+        fn ocr_input_presses() -> u64;
+    }
+    pub fn input_presses() -> u64 {
+        unsafe { ocr_input_presses() }
+    }
+
     #[link(name = "CoreGraphics", kind = "framework")]
     extern "C" {
         fn CGPreflightScreenCaptureAccess() -> bool;
@@ -339,7 +346,11 @@ fn present_frame(app: &AppHandle, w: &WebviewWindow, frame: Frame, mode: Mode, s
     {
         let mut shot = st.shot.lock_safe();
         let previous_frame = shot.take().map(|s| s.frame);
-        *shot = Some(Shot { frame, previous_frame, mode, token, started, capture_ms, ready: false, interacting: false, needs_activation });
+        *shot = Some(Shot {
+            frame, previous_frame, mode, token, started, capture_ms, ready: false, interacting: false, needs_activation,
+            #[cfg(target_os = "macos")]
+            input_presses: mac::input_presses(),
+        });
     }
     #[cfg(target_os = "macos")]
     mac::raise_level(w, 1000);
@@ -446,6 +457,8 @@ fn guard_overlay(app: &AppHandle, token: u32, was_key: bool) {
     let app = app.clone();
     let before = FOCUS_BEFORE.load(Ordering::SeqCst);
     let me = std::process::id() as i32;
+    #[cfg(target_os = "macos")]
+    let mut retried_source = false;
     std::thread::spawn(move || {
         let t0 = std::time::Instant::now();
         let (mut was_key, mut lost, mut retried) = (was_key, 0, false);
@@ -507,9 +520,20 @@ fn guard_overlay(app: &AppHandle, token: u32, was_key: bool) {
                 was_key
             };
             lost = if gone { lost + 1 } else { 0 };
-            // Let a brief return to the previous app settle. A new foreground app
-            // (including a system dialog) still gets the short three-sample deadline.
             let limit = if cfg!(target_os = "macos") && !foreign { 9 } else { 3 };
+            // If AppKit gives focus back to the source without user input, retry
+            // activation once. If the source takes it again, the visible window
+            // still accepts the first mouse click for selection or a toolbar action.
+            #[cfg(target_os = "macos")]
+            if ready && was_key && !f.active && before > 0 && f.frontmost == before
+                && (lost == 2 || retried_source)
+            {
+                let activate = !retried_source;
+                retried_source = true;
+                if crate::on_main_thread(&app, move |app| keep_source_selection(app, token, before, activate)) == Some(true) {
+                    lost = 0;
+                }
+            }
             if lost >= limit && overlay_cancel(&app, Some(token)) {
                 let name = foreground_app_name(f.frontmost);
                 crate::log_error(&format!(
@@ -611,11 +635,9 @@ fn restore_selection_focus(app: &AppHandle, pid: i32) {
 }
 
 /// Self-test hook: our app stops being the active one (see mac::give_up_focus).
+#[cfg(target_os = "macos")]
 pub(crate) fn give_up_focus(app: &AppHandle, hide: Option<bool>) {
-    #[cfg(target_os = "macos")]
     let _ = crate::on_main_thread(app, move |_| mac::give_up_focus(hide));
-    #[cfg(not(target_os = "macos"))]
-    let _ = (app, hide);
 }
 
 fn foreground_app_name(pid: i32) -> Option<String> {
@@ -663,6 +685,25 @@ fn window_focus_detail(w: &WebviewWindow) -> Focus {
         #[cfg(not(target_os = "windows"))]
         Focus { active: key, overlay_key: key, own_other_key: false, frontmost: 0 }
     }
+}
+
+/// Recheck on the UI thread: a second hotkey, an intentional switch, or a system
+/// dialog arriving after the guard's observation must not activate this window.
+#[cfg(target_os = "macos")]
+fn keep_source_selection(app: &AppHandle, token: u32, before: i32, activate: bool) -> bool {
+    let Some(w) = app.get_webview_window("overlay") else { return false };
+    let eligible = state(app).shot.lock_safe().as_ref().is_some_and(|s|
+        s.token == token && s.ready && s.input_presses == mac::input_presses()
+            && os_cursor().is_some_and(|p| geometry::display_contains(s.frame.raw, p))
+    );
+    if !eligible || !w.is_visible().unwrap_or(false) || mac::frontmost_other_pid() != Some(before) {
+        return false;
+    }
+    if activate {
+        mac::activate_key(&w);
+        crate::log_info("retried overlay focus after source app reactivated");
+    }
+    true
 }
 
 /// Only the current overlay can take focus. Leave a newly foreground app or permission prompt alone.
@@ -758,6 +799,11 @@ pub(crate) fn overlay_interaction(app: &AppHandle, token: u32, active: bool) -> 
     let mut shot = st.shot.lock_safe();
     if let Some(s) = shot.as_mut().filter(|s| s.token == token) {
         s.interacting = active;
+        #[cfg(target_os = "macos")]
+        if active {
+            // The webview accepted this click as part of the selection.
+            s.input_presses = mac::input_presses();
+        }
         return true;
     }
     false

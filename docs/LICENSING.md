@@ -18,9 +18,9 @@ GPL 允许商业使用、修改和收费分发。本修订不再以商业用途�
 
 ## 已发布的 GPL 二进制与对应源码
 
-[0.6.6 Release](https://github.com/Sink-Fish/OCR-Trans/releases/tag/v0.6.6) 已公开 macOS 和 Windows 安装包，两端均从固定提交 `455f87a3a976826d82533f8f4634a6ad4876ff36` 重新构建，包内包含 GPL 全文与第三方声明。历史标签中的文档保留构建时状态；当前发布状态以该 Release 和 main 文档为准。
+每个 GPL 发行版本在同一发布页提供 macOS 和 Windows 安装包，并用 Git 标签标注构建源码。安装包内包含 GPL 全文与第三方声明。
 
-发布附件提供固定提交的应用源码、Cargo 依赖源码、前端运行时与上游源码、源码获取说明及 SHA-256 校验清单。ONNX Runtime 的固定源码、递归子模块和外部依赖获取方式见 [SOURCE-SUPPLY.md](https://github.com/Sink-Fish/OCR-Trans/releases/download/v0.6.6/OCR-Trans_0.6.6_SOURCE-SUPPLY.md)。Cargo 源包内的 vendor 配置示例需要将目录改为使用者实际解压路径。
+发布附件提供固定提交的应用源码、Cargo 依赖源码、前端运行时与上游源码、源码获取说明及 SHA-256 校验清单。ONNX Runtime 的固定源码、递归子模块和外部依赖获取方式见 [SOURCE-SUPPLY.md](https://github.com/Sink-Fish/OCR-Trans/releases/download/v0.6.7/OCR-Trans_0.6.7_SOURCE-SUPPLY.md)。Cargo 源包内的 vendor 配置示例需要将目录改为使用者实际解压路径。
 
 发行者仍须提供与二进制准确对应的完整源码、修改、构建及安装脚本，并持续满足 GPL 第 6 条的源码提供义务；不能只链接一个可能继续变化的 main 分支。依赖获取可能需要联网。后续变更须复核实际使用的 ONNX Runtime、模型及原生运行库版本、许可、源码义务和材料权属。
 

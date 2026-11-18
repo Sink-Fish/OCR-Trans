@@ -48,6 +48,9 @@ pub struct Shot {
     pub interacting: bool,
     /// The initial frame opens a hidden window. A cross-screen frame moves the existing key window.
     pub needs_activation: bool,
+    /// Input at presentation or the last pointer press accepted by this selection.
+    #[cfg(target_os = "macos")]
+    pub input_presses: u64,
 }
 
 pub struct Pin {

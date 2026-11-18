@@ -70,6 +70,16 @@ const HANDLE_CURSOR: Record<string, string> = {
 /** Full-screen frozen screenshot; drag to select a region, then pick an action. */
 export default function Overlay() {
   const [loaded, setLoaded] = useState(false);
+  const [focused, setFocused] = useState(() => document.hasFocus());
+  useEffect(() => {
+    const update = () => setFocused(document.hasFocus());
+    window.addEventListener("focus", update);
+    window.addEventListener("blur", update);
+    return () => {
+      window.removeEventListener("focus", update);
+      window.removeEventListener("blur", update);
+    };
+  }, []);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [mode, setMode] = useState<Mode>("select");
   const [sel, setSel] = useState<Sel | null>(null);
@@ -353,6 +363,7 @@ export default function Overlay() {
                   if (!chosen || busy.current || e.button !== 0 || !e.isPrimary) return;
                   e.stopPropagation();
                   if (e.isTrusted) e.currentTarget.setPointerCapture(e.pointerId);
+                  setInteraction(true);
                   resizing.current = { l: fx === 0, r: fx === 1, t: fy === 0, b: fy === 1 };
                 }}
               />
@@ -387,11 +398,11 @@ export default function Overlay() {
           </button>
         </div>
       )}
-      {loaded && !dragStart.current && !chosen && (
+      {loaded && !dragStart.current && (!chosen || (isMac && !focused)) && (
         <div className="overlay-hint">
           <span className="hint-mode">{MODE_LABEL[mode]}</span>
-          <span>拖动选择区域</span>
-          <span className="hint-keys">Esc 取消</span>
+          <span>{chosen ? "点击工具栏继续" : "拖动选择区域"}</span>
+          <span className="hint-keys">{isMac && !focused ? "右键取消" : "Esc 取消"}</span>
           <button className="overlay-cancel" onPointerDown={(e) => e.stopPropagation()} onClick={cancel}>
             取消
           </button>

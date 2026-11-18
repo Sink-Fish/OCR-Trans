@@ -164,6 +164,30 @@ pub fn overlay_keys(app: &AppHandle) {
             before.is_some() && took && back,
             format!("before={before:?} overlay focused={took} now={:?}", windows::frontmost_other_pid(app)),
         );
+
+        let focused = || windows::overlay_focus(app) == Some((true, true));
+        capture(app);
+        let original = token(app);
+        let mut recovered = false;
+        if let Some(pid) = before {
+            if wait(focused, 2500) {
+                // Let the guard observe the key window, then reproduce AppKit giving
+                // the source app focus without a key press or click.
+                std::thread::sleep(Duration::from_millis(250));
+                windows::give_focus_to(app, pid);
+                let lost = wait(|| windows::frontmost_other_pid(app) == before, 1000);
+                recovered = lost && wait(focused, 1600) && token(app) == original && visible(app);
+                if recovered {
+                    windows::give_focus_to(app, pid);
+                }
+            }
+        }
+        check("source app reactivated: same selection regains focus", recovered, format!("before={before:?}"));
+        let source_active = wait(|| windows::frontmost_other_pid(app) == before, 1000);
+        std::thread::sleep(Duration::from_millis(1400));
+        check("second source activation keeps the same selectable frame",
+            recovered && source_active && token(app) == original && visible(app), String::new());
+        windows::overlay_cancel(app, token(app));
     }
 
     // 3. hotkey pressed again while the overlay is up, and that capture fails (0.5.6 left the first one's state
@@ -230,34 +254,14 @@ pub fn overlay_keys(app: &AppHandle) {
         windows::overlay_cancel(app, token(app));
     }
 
-    // 7. the focus goes to another app (in real life: macOS's screen-recording confirmation, which a system process
-    //    shows with the focus taken unconditionally; a normal app cannot take it from us at will, so our app gives it
-    //    up instead) → the overlay gives way. The pin from step 6 must be gone first: its window taking the key
-    //    inside our app would blur the result.
-    wait(|| !app.webview_windows().keys().any(|l| l.starts_with("pin-")), 3000);
-    capture(app);
-    // focused, and for a moment (the confirmation came ~0.8 s after the overlay in the 0.5.6 incident; the guard
-    // polls every 150 ms)
-    let focused = || windows::overlay_focus(app) == Some((true, true));
-    if wait(focused, 2500) && { std::thread::sleep(Duration::from_millis(400)); focused() } {
-        let t0 = Instant::now();
-        windows::give_up_focus(app, None);
-        let mut how = "deactivate";
-        if !wait(|| windows::overlay_focus(app).is_none_or(|(active, _)| !active), 1000) {
-            how = "hide";
-            windows::give_up_focus(app, Some(true));
-        }
-        let g = wait(|| gone(app), 3000);
-        let (ok, d) = none_held(app);
-        check("focus lost to another app: overlay cancelled", g && ok, format!("via {how}, after {} ms, {d}", t0.elapsed().as_millis()));
-        if how == "hide" {
-            windows::give_up_focus(app, Some(false));
-        }
-        if !g {
-            windows::overlay_cancel(app, token(app));
-        }
-    } else {
-        check("overlay becomes the key window of the active app", false, format!("{:?}", windows::overlay_focus(app)));
+    // An explicitly hidden application must not take the key back.
+    #[cfg(target_os = "macos")]
+    {
+        capture(app);
+        windows::give_up_focus(app, Some(true));
+        let hidden = wait(|| gone(app), 3000);
+        windows::give_up_focus(app, Some(false));
+        check("explicitly hiding the app cancels the selection", hidden, String::new());
         windows::overlay_cancel(app, token(app));
     }
 

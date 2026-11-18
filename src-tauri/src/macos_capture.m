@@ -1,5 +1,16 @@
 #import <ScreenCaptureKit/ScreenCaptureKit.h>
 
+// A change means that the user may have deliberately switched apps. Read counts
+// only; no event tap, key contents or extra input-monitoring permission is needed.
+uint64_t ocr_input_presses(void) {
+    const CGEventType types[] = { kCGEventKeyDown, kCGEventLeftMouseDown,
+        kCGEventRightMouseDown, kCGEventOtherMouseDown };
+    uint64_t count = 0;
+    for (size_t i = 0; i < sizeof(types) / sizeof(types[0]); ++i)
+        count += CGEventSourceCounterForEventType(kCGEventSourceStateCombinedSessionState, types[i]);
+    return count;
+}
+
 // Runs only in the disposable capture worker. Its parent enforces the deadline
 // across both asynchronous operations and reaps the worker on timeout.
 int ocr_capture_display(uint32_t displayID, uint32_t width, uint32_t height,

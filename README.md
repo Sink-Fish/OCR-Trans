@@ -6,16 +6,16 @@ OCR Trans 是适用于 macOS 和 Windows 的离线截图识字与翻译工具。
 
 ## 安装
 
-当前版本为 **0.6.6（GPL-3.0-only）**，提供 macOS 和 Windows 安装包。
+当前版本为 **0.6.7（GPL-3.0-only）**，提供 macOS 和 Windows 安装包。
 
-[下载 macOS 0.6.6 安装包](https://github.com/Sink-Fish/OCR-Trans/releases/download/v0.6.6/OCR-Trans_0.6.6_arm64.dmg) · [下载 Windows 0.6.6 安装包](https://github.com/Sink-Fish/OCR-Trans/releases/download/v0.6.6/OCR-Trans_0.6.6_native_x64-setup.exe) · [发布说明、对应源码与 SHA-256 校验文件](https://github.com/Sink-Fish/OCR-Trans/releases/tag/v0.6.6)
+[下载 macOS 0.6.7 安装包](https://github.com/Sink-Fish/OCR-Trans/releases/download/v0.6.7/OCR-Trans_0.6.7_arm64.dmg) · [下载 Windows 0.6.7 安装包](https://github.com/Sink-Fish/OCR-Trans/releases/download/v0.6.7/OCR-Trans_0.6.7_x64-setup.exe) · [发布说明、对应源码与 SHA-256 校验文件](https://github.com/Sink-Fish/OCR-Trans/releases/tag/v0.6.7)
 
 | 平台 | 安装文件 | 首次使用 |
 | --- | --- | --- |
 | macOS 13 及以上，Apple 芯片 | `arm64.dmg` | 将 OCR Trans 拖入“应用程序”后打开，并授予屏幕录制权限。当前分发包使用本地签名，未经 Apple Developer ID 签名或公证。 |
-| Windows x64 | `native_x64-setup.exe` | 安装包未签名，系统可能显示安全提示；需要 WebView2 和 Microsoft Visual C++ x64 运行库。 |
+| Windows x64 | `x64-setup.exe` | 安装包未签名，系统可能显示安全提示；需要 WebView2 和 Microsoft Visual C++ x64 运行库。 |
 
-0.6.6 的精确构建提交为 `455f87a3a976826d82533f8f4634a6ad4876ff36`。历史标签和 Git 记录保留；旧版 0.6.5 文件仍携带发布时的非商业许可，不因新版发布被重新授权。
+历史标签和 Git 记录保留；旧版 0.6.5 文件仍携带发布时的非商业许可，不因新版发布被重新授权。
 
 ## 快速使用
 
@@ -45,9 +45,9 @@ python3 -m unittest discover -s scripts/tests
 
 ### 发布版本的对应源码
 
-[0.6.6 发布页](https://github.com/Sink-Fish/OCR-Trans/releases/tag/v0.6.6)提供固定提交的应用源码 ZIP、Cargo 依赖源码、前端运行时与上游源码、`SOURCE-SUPPLY.md` 和校验清单。ONNX Runtime 的固定源码、子模块及外部依赖获取方法见该说明。源码获取可能需要联网。
+[0.6.7 发布页](https://github.com/Sink-Fish/OCR-Trans/releases/tag/v0.6.7)提供固定提交的应用源码 ZIP、Cargo 依赖源码、前端运行时与上游源码、`SOURCE-SUPPLY.md` 和校验清单。ONNX Runtime 的固定源码、子模块及外部依赖获取方法见该说明。源码获取可能需要联网。
 
-Cargo 源包内的 `ot66-vendor-config.txt` 是配置示例：使用时将 `[source.vendored-sources]` 的 `directory` 改为你解压后 `cargo` 目录的实际路径，不要直接沿用构建机路径。Windows 的具体工具版本及 `pnpm.cmd` 引号转义兼容操作见 Windows 构建报告。
+Cargo 源包内的 `ot66-vendor-config.txt` 是配置示例：使用时将 `[source.vendored-sources]` 的 `directory` 改为你解压后 `cargo` 目录的实际路径，不要直接沿用构建机路径。双端构建方式及测试结果见对应版本发布页。
 
 ## 使用许可与反馈
 
