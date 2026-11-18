@@ -73,7 +73,8 @@ mod mac {
                     frontmost = msg_send![front, processIdentifier];
                 }
             }
-            super::Focus { active, overlay_key, own_other_key: !kw.is_null() && kw != ns, frontmost }
+            let hidden: bool = msg_send![app, isHidden];
+            super::Focus { active, overlay_key, own_other_key: !kw.is_null() && kw != ns, frontmost, hidden }
         }
     }
 
@@ -486,6 +487,13 @@ fn guard_overlay(app: &AppHandle, token: u32, was_key: bool) {
                 continue;
             }
             let Some(f) = overlay_focus_detail(&app) else { continue };
+            #[cfg(target_os = "macos")]
+            if f.hidden && was_key {
+                if overlay_cancel(&app, Some(token)) {
+                    crate::log_info("overlay cancelled after app was hidden");
+                }
+                return;
+            }
             if seen != Some(f) {
                 crate::log_info(&format!(
                     "overlay focus at {} ms: app active={}, overlay key window={}, other own window key={}, frontmost pid={} (us {me}, before {before})",
@@ -655,6 +663,8 @@ fn foreground_app_name(pid: i32) -> Option<String> {
 pub struct Focus {
     /// our app is the active one
     pub active: bool,
+    #[cfg(target_os = "macos")]
+    pub hidden: bool,
     /// the overlay is our key window
     pub overlay_key: bool,
     /// another window of ours is the key window (a pin or text window of the previous capture showing itself, …)
@@ -696,7 +706,11 @@ fn keep_source_selection(app: &AppHandle, token: u32, before: i32, activate: boo
         s.token == token && s.ready && s.input_presses == mac::input_presses()
             && os_cursor().is_some_and(|p| geometry::display_contains(s.frame.raw, p))
     );
-    if !eligible || !w.is_visible().unwrap_or(false) || mac::frontmost_other_pid() != Some(before) {
+    if !eligible || !w.is_visible().unwrap_or(false) {
+        return false;
+    }
+    let focus = mac::focus_detail(&w);
+    if focus.hidden || focus.frontmost != before {
         return false;
     }
     if activate {

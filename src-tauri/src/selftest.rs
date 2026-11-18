@@ -258,8 +258,10 @@ pub fn overlay_keys(app: &AppHandle) {
     #[cfg(target_os = "macos")]
     {
         capture(app);
+        let active = wait(|| windows::overlay_focus(app) == Some((true, true)), 2500);
+        std::thread::sleep(Duration::from_millis(300));
         windows::give_up_focus(app, Some(true));
-        let hidden = wait(|| gone(app), 3000);
+        let hidden = active && wait(|| gone(app), 3000);
         windows::give_up_focus(app, Some(false));
         check("explicitly hiding the app cancels the selection", hidden, String::new());
         windows::overlay_cancel(app, token(app));
