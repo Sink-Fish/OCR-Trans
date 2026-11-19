@@ -11,9 +11,9 @@ const read = (p: string) => readFileSync(join(ROOT, p), "utf8");
 
 test("Windows builds llama.cpp with run-time CPU variants and Vulkan", () => {
   const toml = read("crates/core/Cargo.toml");
-  assert.match(toml, /\[target\.'cfg\(target_os = "windows"\)'\.dependencies\]\s*\nllama-cpp-2 = \{[^}]*features = \["dynamic-backends", "vulkan"\]/);
+  assert.match(toml, /\[target\.'cfg\(target_os = "windows"\)'\.dependencies\][^\[]*llama-cpp-2 = \{[^}]*features = \["dynamic-backends", "vulkan"\]/);
   const llm = read("crates/core/src/llm.rs");
-  assert.match(llm, /#\[cfg\(target_os = "windows"\)\][\s\S]*load_backends_from_path\(&dir\)[\s\S]*LlamaBackend::init\(\)/, "backends loaded before init");
+  assert.match(llm, /if cpu_only \{ load_cpu_backend\(dir\)[\s\S]*?else \{ llama_cpp_2::llama_backend::load_backends_from_path\(dir\); \}[\s\S]*?LlamaBackend::init\(\)/);
   const sh = read("scripts/build_windows.sh");
   assert.match(sh, /"\$OUT"\/bin\/\*\.dll "\$OUT"\/backends\/\*\.dll/, "every llama DLL goes into the installer");
   assert.match(sh, /grep -q "ggml-cpu"/);

@@ -145,11 +145,16 @@ mod mac {
     pub fn raise_level(w: &tauri::WebviewWindow, level: isize) {
         use objc2::msg_send;
         use objc2::runtime::AnyObject;
+        use objc2_app_kit::{NSWindowAnimationBehavior, NSWindowCollectionBehavior as Behavior};
         if let Ok(ptr) = w.ns_window() {
             let ns = ptr as *mut AnyObject;
-            // NSWindowCollectionBehaviorCanJoinAllSpaces | FullScreenAuxiliary | Stationary
-            let behavior: usize = (1 << 0) | (1 << 8) | (1 << 4);
+            let mut behavior = Behavior::CanJoinAllSpaces | Behavior::FullScreenAuxiliary | Behavior::Stationary;
             unsafe {
+                if w.label() == "overlay" {
+                    // The screenshot belongs above the foreground app's full-screen Space or Stage Manager set.
+                    behavior |= Behavior::CanJoinAllApplications;
+                    let _: () = msg_send![ns, setAnimationBehavior: NSWindowAnimationBehavior::None];
+                }
                 let _: () = msg_send![ns, setLevel: level];
                 let _: () = msg_send![ns, setCollectionBehavior: behavior];
             }
@@ -441,11 +446,8 @@ pub(crate) fn overlay_payload(app: &AppHandle) -> Option<serde_json::Value> {
 /// Dev hook for the self-test (selftest.rs): the next capture fails after taking the screenshot.
 pub static FAIL_NEXT_CAPTURE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
-/// Watches a shown overlay until it is gone: cancels it if the page has not painted within 2 s, and as soon as the
-/// keyboard focus has gone elsewhere for good (~0.3 s):
-/// - another app came to the front — neither us nor the app the user was in (in practice a system prompt); also
-///   before the page has painted and when the overlay never got the focus;
-/// - the overlay had the focus and then our app lost it.
+/// A stalled page, explicitly hiding the app, or a different foreground app can end a capture.
+/// On macOS the source app can regain activation while the overlay is still visible and accepts a drag.
 ///
 /// One of our own windows taking the key (the previous capture's pin or text window showing itself) is not a loss:
 /// the overlay takes the key back.
@@ -506,6 +508,17 @@ fn guard_overlay(app: &AppHandle, token: u32, was_key: bool) {
                 seen = Some(f);
             }
             let foreign = f.frontmost > 0 && f.frontmost != me && f.frontmost != before;
+            #[cfg(target_os = "macos")]
+            if !f.active && before > 0 && f.frontmost == before {
+                // A key press, click or pointer movement can rule out taking the keyboard
+                // back. None of these invalidates the visible selection or its first click.
+                if ready && was_key && !retried_source {
+                    retried_source = true;
+                    let _ = crate::on_main_thread(&app, move |app| retry_source_focus(app, token, before));
+                }
+                lost = 0;
+                continue;
+            }
             // NSWorkspace and the key window can briefly disagree during activation.
             // Keep a working selection while it still owns the keyboard.
             let gone = if f.active && f.overlay_key {
@@ -529,19 +542,6 @@ fn guard_overlay(app: &AppHandle, token: u32, was_key: bool) {
             };
             lost = if gone { lost + 1 } else { 0 };
             let limit = if cfg!(target_os = "macos") && !foreign { 9 } else { 3 };
-            // If AppKit gives focus back to the source without user input, retry
-            // activation once. If the source takes it again, the visible window
-            // still accepts the first mouse click for selection or a toolbar action.
-            #[cfg(target_os = "macos")]
-            if ready && was_key && !f.active && before > 0 && f.frontmost == before
-                && (lost == 2 || retried_source)
-            {
-                let activate = !retried_source;
-                retried_source = true;
-                if crate::on_main_thread(&app, move |app| keep_source_selection(app, token, before, activate)) == Some(true) {
-                    lost = 0;
-                }
-            }
             if lost >= limit && overlay_cancel(&app, Some(token)) {
                 let name = foreground_app_name(f.frontmost);
                 crate::log_error(&format!(
@@ -700,24 +700,20 @@ fn window_focus_detail(w: &WebviewWindow) -> Focus {
 /// Recheck on the UI thread: a second hotkey, an intentional switch, or a system
 /// dialog arriving after the guard's observation must not activate this window.
 #[cfg(target_os = "macos")]
-fn keep_source_selection(app: &AppHandle, token: u32, before: i32, activate: bool) -> bool {
-    let Some(w) = app.get_webview_window("overlay") else { return false };
+fn retry_source_focus(app: &AppHandle, token: u32, before: i32) {
+    let Some(w) = app.get_webview_window("overlay") else { return };
     let eligible = state(app).shot.lock_safe().as_ref().is_some_and(|s|
         s.token == token && s.ready && s.input_presses == mac::input_presses()
             && os_cursor().is_some_and(|p| geometry::display_contains(s.frame.raw, p))
     );
     if !eligible || !w.is_visible().unwrap_or(false) {
-        return false;
+        return;
     }
     let focus = mac::focus_detail(&w);
-    if focus.hidden || focus.frontmost != before {
-        return false;
-    }
-    if activate {
+    if !focus.active && !focus.hidden && focus.frontmost == before {
         mac::activate_key(&w);
         crate::log_info("retried overlay focus after source app reactivated");
     }
-    true
 }
 
 /// Only the current overlay can take focus. Leave a newly foreground app or permission prompt alone.
@@ -887,6 +883,13 @@ fn finish_selection(app: &AppHandle, token: Option<u32>, x: f64, y: f64, w: f64,
             // A too-small selection keeps the overlay and the capture.
             let crop = geometry::selection_to_crop([x, y, w, h], (s.frame.monitor.x as f64, s.frame.monitor.y as f64), s.frame.monitor.width as f64, s.frame.image.dimensions())
                 .ok_or_else(|| anyhow!("选区太小"))?;
+            #[cfg(windows)]
+            let crop = {
+                let mut crop = crop;
+                crop.rect[0] = (f64::from(s.frame.raw[0]) + f64::from(crop.px)) / crop.scale;
+                crop.rect[1] = (f64::from(s.frame.raw[1]) + f64::from(crop.py)) / crop.scale;
+                crop
+            };
             (g.take().expect("checked above"), crop)
         };
         hide_overlay(app, Some(shot.token));
@@ -924,7 +927,7 @@ fn finish_selection(app: &AppHandle, token: Option<u32>, x: f64, y: f64, w: f64,
                 let chosen = with_pins_lowered(&app, || dlg.blocking_save_file()).and_then(|p| p.into_path().ok());
                 restore_selection_focus(&app, focus_before);
                 if let Some(p) = chosen {
-                    match crop.save(&p) {
+                    match crate::atomic_file::replace(&p, |f| Ok(crop.write_to(f, image::ImageFormat::Png)?)) {
                         Ok(()) => show_toast(&app, &format!("已保存 {}", p.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default()), "ok"),
                         Err(e) => show_toast(&app, &format!("保存失败：{e}"), "error"),
                     }
@@ -981,7 +984,7 @@ pub fn add_pin(app: &AppHandle, image: impl Into<std::sync::Arc<RgbaImage>>, sca
     let pixels = pins.values().map(|p| p.image.as_raw().len() as u64).sum::<u64>() + image.as_raw().len() as u64;
     anyhow::ensure!(pixels * 2 <= 512 * 1024 * 1024, "钉图图像已达到内存上限，请关闭部分钉图后重试");
     let id = st.next_id.fetch_add(1, Ordering::Relaxed);
-    pins.insert(id, Pin { image, scale, rect, ocr: None, translated: None, translated_glossary: vec![], edit_revision: 0, translation_generation: 0, clean: None, original_png: None, clean_png: None, history_id: None });
+    pins.insert(id, Pin { image, scale, rect, ocr: None, translated: None, translated_glossary: vec![], edit_revision: 0, translation_generation: 0, clean: None, original_png: None, clean_png: None, history_id: None, saved_translation: None });
     Ok(id)
 }
 
@@ -1044,9 +1047,10 @@ pub fn open_text_window_with(app: &AppHandle, id: u32, translated: bool, autotes
         let _ = w.set_focus();
         return Ok(());
     }
-    let rect = state(app).pins.lock_safe().get(&id).map(|p| p.rect).ok_or_else(|| anyhow!("no pin"))?;
-    let work = work_area_at(app, rect[0] + rect[2] / 2.0, rect[1] + rect[3] / 2.0).unwrap_or([0.0, 0.0, 1440.0, 900.0]);
-    let [x, y, w, h] = crate::geometry::text_window_frame(rect, work);
+    let (rect, capture_scale) = state(app).pins.lock_safe().get(&id).map(|p| (p.rect, p.scale)).ok_or_else(|| anyhow!("no pin"))?;
+    let (work, scale) = work_area_at(app, rect, capture_scale).unwrap_or(([0.0, 0.0, 1440.0, 900.0], 1.0));
+    let selection = if cfg!(windows) { rect.map(|v| v * f64::from(capture_scale) / scale) } else { rect };
+    let [x, y, width, height] = crate::geometry::text_window_frame(selection, work);
     let url = format!("index.html?view=ocr&id={id}&translated={}{}", translated as u8, autotest.map(|m| format!("&autotest={m}")).unwrap_or_default());
     let w = WebviewWindowBuilder::new(app, label, WebviewUrl::App(url.into()))
         .title("识字")
@@ -1054,28 +1058,35 @@ pub fn open_text_window_with(app: &AppHandle, id: u32, translated: bool, autotes
         .always_on_top(true)
         .resizable(true)
         .min_inner_size(420.0, 300.0)
-        .inner_size(w, h)
+        .inner_size(width, height)
         .position(x, y)
         .visible(false)
         .build()?;
+    #[cfg(windows)]
+    {
+        w.set_position(tauri::PhysicalPosition::new((x * scale).round() as i32, (y * scale).round() as i32))?;
+        w.set_size(tauri::PhysicalSize::new((width * scale).round() as u32, (height * scale).round() as u32))?;
+    }
     raise(&w, 8);
     Ok(())
 }
 
 /// Visible work area (menu bar and Dock excluded) of the monitor under a logical point, in logical coordinates.
-fn work_area_at(app: &AppHandle, x: f64, y: f64) -> Option<[f64; 4]> {
+fn work_area_at(app: &AppHandle, rect: [f64;4], capture_scale: f32) -> Option<([f64; 4], f64)> {
+    let factor = if cfg!(windows) { f64::from(capture_scale) } else { 1.0 };
+    let (x, y) = ((rect[0] + rect[2] / 2.0) * factor, (rect[1] + rect[3] / 2.0) * factor);
     let mons = app.available_monitors().ok()?;
     let rects: Vec<[f64; 4]> = mons
         .iter()
         .map(|m| {
-            let s = m.scale_factor();
+            let s = if cfg!(windows) { 1.0 } else { m.scale_factor() };
             [m.position().x as f64 / s, m.position().y as f64 / s, m.size().width as f64 / s, m.size().height as f64 / s]
         })
         .collect();
     // no monitors (a display reconfiguring) → None, not an index panic
     let m = crate::geometry::monitor_at(&rects, x, y).and_then(|i| mons.get(i)).or(mons.first())?;
     let (s, wa) = (m.scale_factor(), m.work_area());
-    Some([wa.position.x as f64 / s, wa.position.y as f64 / s, wa.size.width as f64 / s, wa.size.height as f64 / s])
+    Some(([wa.position.x as f64 / s, wa.position.y as f64 / s, wa.size.width as f64 / s, wa.size.height as f64 / s], s))
 }
 
 pub fn open_settings(app: &AppHandle, tab: Option<&str>) {

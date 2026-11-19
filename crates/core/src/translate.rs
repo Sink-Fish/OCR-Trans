@@ -169,7 +169,11 @@ impl MtModel {
         for (owner, result) in owners.into_iter().zip(res) {
             let tokens = result.hypotheses.into_iter().next().context("快速翻译未返回结果")?;
             ensure!(tokens.len() < MAX_OUTPUT, "快速翻译达到输出长度上限，已保留原文以免丢失内容");
-            out[owner].push_str(&self.tokenizer.decode(tokens)?);
+            let decoded = self.tokenizer.decode(tokens)?;
+            let text = self.target_prefix.as_ref()
+                .and_then(|prefix| decoded.trim_start().strip_prefix(prefix.as_str()))
+                .unwrap_or(&decoded);
+            out[owner].push_str(text);
         }
         Ok(out.into_iter().map(|t| tidy_zh(&t)).collect())
     }

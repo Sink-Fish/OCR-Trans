@@ -73,6 +73,7 @@ pub struct Pin {
     pub clean_png: Option<Arc<Vec<u8>>>,
     /// Entry in the history list this pin came from / was recorded as.
     pub history_id: Option<u64>,
+    pub saved_translation: Option<crate::history::Item>,
 }
 
 pub struct AppState {

@@ -2,6 +2,8 @@
 import argparse
 import json
 import os
+import plistlib
+import re
 from pathlib import Path
 import signal
 import subprocess
@@ -41,10 +43,22 @@ def run_desktop(executable, profile, test_env):
 
 def verify_desktop(executable, screenshot, models, output):
     output.mkdir(parents=True, exist_ok=True)
-    for name, engine, device, expected in [
+    cases = [
         ("fast", "fast", "auto", "nmt"), ("quality-cpu", "quality", "cpu", "llm"),
         ("quality-auto", "quality", "auto", "llm")
-    ]:
+    ]
+    bundle = executable.parent.parent
+    if sys.platform == "darwin" and bundle.name == "Contents":
+        with (bundle / "Info.plist").open("rb") as src:
+            minimum = plistlib.load(src)["LSMinimumSystemVersion"]
+        legacy = bundle / "Resources/runtime/libonnxruntime-ventura.dylib"
+        def build_minimum(binary):
+            data = subprocess.check_output(["xcrun", "vtool", "-show-build", binary], text=True)
+            return tuple(map(int, re.search(r"minos ([0-9.]+)", data).group(1).split(".")))
+        assert build_minimum(legacy) <= tuple(map(int, minimum.split("."))) <= (13, 0)
+        assert "monotonic_buffer_resource" not in subprocess.check_output(["nm", "-u", legacy], text=True)
+        cases.append(("ventura-runtime", "fast", "auto", "nmt"))
+    for name, engine, device, expected in cases:
         with tempfile.TemporaryDirectory(prefix="ocr-trans-release-") as tmp:
             profile = Path(tmp)
             settings = dict(version=2, onboarded=True, hotkey_capture="", keep_history=False,
@@ -52,6 +66,8 @@ def verify_desktop(executable, screenshot, models, output):
             (profile / "settings.json").write_text(json.dumps(settings), encoding="utf-8")
             env = dict(OCRTRANS_TEST_PROFILE=tmp, OCRTRANS_DATA_DIR=tmp,
                        OCRTRANS_TEST_PIN=str(screenshot) + ":translate", OCRTRANS_ENGINE=engine)
+            if name == "ventura-runtime":
+                env["ORT_DYLIB_PATH"] = str(legacy)
             try:
                 run_desktop(executable, profile, env)
             finally:
@@ -64,6 +80,10 @@ def verify_desktop(executable, screenshot, models, output):
                 raise AssertionError(f"{name} did not exit cleanly; see {output}/{name}.log")
             if device == "cpu" and "llm: model on CPU" not in log:
                 raise AssertionError("CPU selection was not honored")
+            if device == "cpu":
+                devices = [line for line in log.splitlines() if "llm: device " in line]
+                if not devices or any(", Cpu," not in line for line in devices):
+                    raise AssertionError(f"CPU-only worker registered unexpected native devices: {devices}")
             print(f"{name}: render and exit PASS", flush=True)
 
 

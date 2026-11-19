@@ -1,3 +1,4 @@
+mod atomic_file;
 mod commands;
 pub mod capture_worker;
 mod geometry;

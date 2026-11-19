@@ -1,12 +1,12 @@
 import { WorkingStatus } from "../lib/WorkingStatus";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { currentMonitor, LogicalPosition, LogicalSize, primaryMonitor } from "@tauri-apps/api/window";
+import { currentMonitor, monitorFromPoint, PhysicalPosition, PhysicalSize, LogicalPosition, LogicalSize, primaryMonitor } from "@tauri-apps/api/window";
 import { win } from "../lib/win";
-import { api, loadBitmap, type PinInfo, type PipelineResult } from "../lib/api";
+import { api, isWindows, loadBitmap, type PinInfo, type PipelineResult } from "../lib/api";
 import { pinAnchor, pinLayout, type Box } from "../lib/placement";
 import { paragraphAt, renderTranslated } from "../lib/render";
 import { Icon, type IconId } from "../lib/icons";
-import { bounds, drawAnnotations, drawSelection, drawShape, finishShape, nextMarkerNumber, shapeAt, translate as moveShape, type Shape, type Tool } from "../lib/doodle";
+import { mosaicCovers, bounds, drawAnnotations, drawSelection, drawShape, finishShape, nextMarkerNumber, shapeAt, translate as moveShape, type Shape, type Tool } from "../lib/doodle";
 
 const COLORS = ["#ff3b30", "#ffcc00", "#34c759", "#0a84ff", "#000000"];
 const MOD = navigator.userAgent.includes("Mac") ? "⌘" : "Ctrl+";
@@ -61,7 +61,7 @@ export default function Pin({ id, translate, demo = false, initialTool }: { id: 
   const [img, setImg] = useState<ImageBitmap | null>(null);
   const [result, setResult] = useState<PipelineResult | null>(null);
   const [clean, setClean] = useState<ImageBitmap | null>(null);
-  const [tip, setTip] = useState<{ x: number; y: number; text: string } | null>(null);
+  const [tip, setTip] = useState<{ x: number; y: number; index: number } | null>(null);
   const [paraEdit, setParaEdit] = useState<{ index: number; left: number; top: number; width: number; height: number; value: string } | null>(null);
   const [showTranslated, setShowTranslated] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
@@ -172,12 +172,12 @@ export default function Pin({ id, translate, demo = false, initialTool }: { id: 
     // must read the position after both operations complete, along with the matching image offset.
     layoutQueue.current = layoutQueue.current.then(async () => {
       if (cancelled) return;
-      const sf = await win.scaleFactor();
-      const pos = (await win.outerPosition()).toLogical(sf);
-      // where the image is on screen now (the window may have been dragged since the last layout)
-      const imgScreen = { x: pos.x + imgOffset.current.x, y: pos.y + imgOffset.current.y, w: Math.ceil(cssW), h: Math.ceil(cssH) };
-      const current = await currentMonitor();
+      const anchor = isWindows && !shown.current ? info.physical_anchor : undefined;
+      const current = anchor ? await monitorFromPoint(...anchor) : await currentMonitor();
       const mon = current ?? await primaryMonitor();
+      const sf = isWindows && mon ? mon.scaleFactor : await win.scaleFactor();
+      const pos = anchor ? { x: anchor[0] / sf, y: anchor[1] / sf } : (await win.outerPosition()).toLogical(sf);
+      const imgScreen = { x: pos.x + imgOffset.current.x, y: pos.y + imgOffset.current.y, w: Math.ceil(cssW), h: Math.ceil(cssH) };
       const work: Box = mon
         ? {
             x: mon.workArea.position.x / mon.scaleFactor,
@@ -196,8 +196,13 @@ export default function Pin({ id, translate, demo = false, initialTool }: { id: 
       const L = pinLayout(shown.current ? imgScreen : pinAnchor(imgScreen, display, work), tb, work);
       if (cancelled) return;
       // size first: AppKit keeps the bottom-left corner fixed when resizing
-      await win.setSize(new LogicalSize(Math.ceil(L.window.w), Math.ceil(L.window.h)));
-      await win.setPosition(new LogicalPosition(L.window.x, L.window.y));
+      if (isWindows) {
+        await win.setPosition(new PhysicalPosition(Math.round(L.window.x * sf), Math.round(L.window.y * sf)));
+        await win.setSize(new PhysicalSize(Math.ceil(L.window.w * sf), Math.ceil(L.window.h * sf)));
+      } else {
+        await win.setSize(new LogicalSize(Math.ceil(L.window.w), Math.ceil(L.window.h)));
+        await win.setPosition(new LogicalPosition(L.window.x, L.window.y));
+      }
       imgOffset.current = L.image;
       setLay({ img: L.image, tb: L.toolbar });
       if (!shown.current && !cancelled) {
@@ -358,6 +363,7 @@ export default function Pin({ id, translate, demo = false, initialTool }: { id: 
       return;
     }
     const p = result!.paragraphs[i];
+    if (mosaicCovers(p.bbox, shapes)) return;
     setTip(null);
     setParaEdit({ index: i, ...cssRect(p.bbox), value: p.translation ?? "" });
   }
@@ -374,6 +380,7 @@ export default function Pin({ id, translate, demo = false, initialTool }: { id: 
         ...current, paragraphs: current.paragraphs.map((p, i) => (i === index ? { ...p, translation: value } : p)),
       });
     } catch (err) {
+      setParaEdit(current => current ?? paraEdit);
       flash(String(err));
     }
   }
@@ -398,9 +405,9 @@ export default function Pin({ id, translate, demo = false, initialTool }: { id: 
     }
     if (tool === "move" && !draft) {
       const i = hitParagraph(e);
-      if (i >= 0 && !paraEdit) {
+      if (i >= 0 && !paraEdit && !mosaicCovers(result!.paragraphs[i].bbox, shapes)) {
         const r = canvasRef.current!.getBoundingClientRect();
-        setTip({ x: e.clientX - r.left, y: e.clientY - r.top, text: result!.paragraphs[i].text });
+        setTip({ x: e.clientX - r.left, y: e.clientY - r.top, index: i });
       } else if (tip) setTip(null);
     }
     if (!draft || pointerRef.current !== e.pointerId) return;
@@ -592,9 +599,9 @@ export default function Pin({ id, translate, demo = false, initialTool }: { id: 
           onDoubleClick={onDoubleClick}
         />
         <div className="pin-frame" />
-        {tip && (
+        {tip && tool === "move" && showTranslated && result?.paragraphs[tip.index] && !mosaicCovers(result.paragraphs[tip.index].bbox, shapes) && (
           <div className="pin-tip" style={{ left: Math.min(tip.x + 12, Math.max(0, cssW - 260)), top: tip.y + 16 }}>
-            {tip.text}
+            {result.paragraphs[tip.index].text}
             <span className="muted">（双击修改译文）</span>
           </div>
         )}
@@ -778,10 +785,11 @@ export default function Pin({ id, translate, demo = false, initialTool }: { id: 
                 {Math.round(o * 100)}%
               </button>
             ))}
-            {result?.engine && (
+            {(result?.engine || info?.has_saved_translation) && (
               <>
                 <span className="sep" />
-                <button title={isLlm ? "当前：高质量翻译（Qwen3）。点击改用快速翻译" : "当前：快速翻译。点击用高质量大模型重新翻译"} className="wide" onClick={switchEngine}>
+                {(result?.engine === "history" || (!result && info?.has_saved_translation)) && <button className="wide" onClick={() => runTranslate("fast")}>快速重译</button>}
+                <button title={info?.has_saved_translation && !isLlm ? "用高质量模型重新翻译" : isLlm ? "当前：高质量翻译（Qwen3）。点击改用快速翻译" : "当前：快速翻译。点击用高质量大模型重新翻译"} className="wide" onClick={switchEngine}>
                   {isLlm ? "改用快速翻译" : "高质量重译"}
                 </button>
               </>

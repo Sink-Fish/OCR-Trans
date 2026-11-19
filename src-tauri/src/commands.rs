@@ -71,6 +71,8 @@ pub fn start_capture(app: AppHandle, mode: Mode) {
 
 #[derive(Serialize)]
 pub struct PinInfo {
+    has_saved_translation: bool,
+    physical_anchor: [i32; 2],
     width: u32,
     height: u32,
     scale: f32,
@@ -83,7 +85,7 @@ pub async fn pin_info(app: AppHandle, id: u32) -> CmdResult<PinInfo> {
     let font_family = st.settings.lock_safe().font_family.clone();
     let pins = st.pins.lock_safe();
     let p = pins.get(&id).ok_or("pin not found")?;
-    Ok(PinInfo { width: p.image.width(), height: p.image.height(), scale: p.scale, font_family })
+    Ok(PinInfo { has_saved_translation: p.saved_translation.is_some(), physical_anchor: crate::geometry::physical_anchor(p.rect, p.scale), width: p.image.width(), height: p.image.height(), scale: p.scale, font_family })
 }
 
 /// OCR (and optionally translate) a pin; results are cached on the pin.
@@ -111,6 +113,7 @@ pub async fn pin_process(app: AppHandle, window: tauri::WebviewWindow, id: u32, 
         use image::buffer::ConvertBuffer;
         let st = state(&app);
         let settings = st.settings.lock_safe().clone();
+        let implicit = engine.is_none();
         let engine = engine.or_else(|| std::env::var("OCRTRANS_ENGINE").ok()).unwrap_or(settings.engine);
         let started = Instant::now();
         let epoch = st.model_generation.load(std::sync::atomic::Ordering::SeqCst);
@@ -123,15 +126,15 @@ pub async fn pin_process(app: AppHandle, window: tauri::WebviewWindow, id: u32, 
                 let _ = app.emit_to(format!("ocr-{id}"), "pin-busy", message);
             }
         };
-        let (img, cached) = {
+        let (img, cached, saved) = {
             let pins = st.pins.lock_safe();
             let pin = pins.get(&id).ok_or_else(|| anyhow::anyhow!("钉图已关闭"))?;
             if let Some(r) = &pin.ocr {
-                if !translate || (pin.translated.as_deref() == Some(engine.as_str()) && pin.translated_glossary == settings.glossary && r.warnings.is_empty()) {
+                if !translate || (implicit && pin.saved_translation.is_some() && pin.clean.is_some()) || (pin.saved_translation.is_none() && pin.translated.as_deref() == Some(engine.as_str()) && pin.translated_glossary == settings.glossary && r.warnings.is_empty()) {
                     return Ok(r.clone());
                 }
             }
-            (pin.image.clone(), pin.ocr.clone())
+            (pin.image.clone(), pin.ocr.clone(), pin.saved_translation.clone().filter(|_| implicit))
         };
         let mut result = match cached {
             Some(r) => r,
@@ -147,7 +150,9 @@ pub async fn pin_process(app: AppHandle, window: tauri::WebviewWindow, id: u32, 
                     let pin = pins.get_mut(&id).ok_or_else(|| anyhow::anyhow!("钉图已关闭"))?;
                     anyhow::ensure!(pin.edit_revision == revision, "识字结果已失效");
                     pin.ocr = Some(r.clone());
-                    if let Some(h) = pin.history_id { crate::history::update_text(&app, h, &r.plain_text(), None); }
+                    if let Some(h) = pin.history_id.filter(|_| pin.saved_translation.is_none()) {
+                        if let Err(e) = crate::history::update_text(&app, h, &r, false) { crate::log_error(&format!("history text: {e:#}")); }
+                    }
                     Ok(r)
                 })?
             }
@@ -156,73 +161,78 @@ pub async fn pin_process(app: AppHandle, window: tauri::WebviewWindow, id: u32, 
             crate::perf_log(&format!("pin {id} ocr: {} ms total", started.elapsed().as_millis()));
             return Ok(result);
         }
-        for paragraph in &mut result.paragraphs { paragraph.translation = None; }
-        result.warnings.clear();
-        let translation_start = Instant::now();
-        #[cfg(feature = "llm")]
-        let mut used_llm = false;
-        #[cfg(not(feature = "llm"))]
-        let used_llm = false;
-        if engine == "quality" {
-            let todo: Vec<_> = result.paragraphs.iter().enumerate().filter_map(|(i, p)| match p.lang {
-                ocrtrans_core::Lang::En => Some((i, "en")), ocrtrans_core::Lang::Ja => Some((i, "ja")), _ => None,
-            }).collect();
-            if !todo.is_empty() {
-                #[cfg(feature = "llm")]
-                {
-                    let response = (|| -> anyhow::Result<_> {
-                        let _assets = st.model_access.read().unwrap_or_else(|e| e.into_inner());
-                        let model = models::locate(&app, "qwen3-1.7b").ok_or_else(|| anyhow::anyhow!("未安装 Qwen3 模型"))?;
-                        let mut request = crate::quality_worker::Request {
-                            model: model.join("model.gguf"), cpu: settings.llm_device == "cpu" || settings.llm_gpu_failed.is_some(),
-                            paragraphs: todo.iter().map(|(i, lang)| (lang.to_string(), result.paragraphs[*i].text.clone())).collect(),
-                            glossary: settings.glossary.clone(),
-                        };
-                        let deadline = started + std::time::Duration::from_secs(240);
-                        let progress = |done, total| stage(&format!("高质量翻译 {done}/{total} 段"));
-                        stage("正在等待或加载高质量模型…");
-                        let first = crate::quality_worker::translate(&request, deadline, cancelled, progress);
-                        match first {
-                            Err(e) if !request.cpu && !cancelled() && Instant::now() < deadline => {
-                                stage("正在使用 CPU 重试…");
-                                request.cpu = true;
-                                let mut reply = crate::quality_worker::translate(&request, deadline, cancelled, progress)?;
-                                reply.gpu_failure = Some(format!("自动模式失败，CPU 重试成功：{e:#}"));
-                                Ok(reply)
-                            }
-                            other => other,
-                        }
-                    })();
-                    anyhow::ensure!(!cancelled(), "翻译已取消");
-                    match response {
-                        Ok(reply) => {
-                            if let Some(reason) = reply.gpu_failure {
-                                ocrtrans_core::llm::set_gpu_blocked(Some(reason));
-                                remember_gpu_failure(&app);
-                            }
-                            let mut completed = 0;
-                            for ((i, _), value) in todo.iter().zip(reply.translations) {
-                                if let Some(text) = value {
-                                    let text = ocrtrans_core::translate::tidy_zh(&ocrtrans_core::translate::replace_terms(&text, &settings.glossary));
-                                    if !text.is_empty() { result.paragraphs[*i].translation = Some(text); completed += 1; }
+        if let Some(saved) = &saved {
+            saved.restore(&mut result)?;
+        } else {
+            for paragraph in &mut result.paragraphs { paragraph.translation = None; }
+            result.warnings.clear();
+            let translation_start = Instant::now();
+            #[cfg(feature = "llm")]
+            let mut used_llm = false;
+            #[cfg(not(feature = "llm"))]
+            let used_llm = false;
+            if engine == "quality" {
+                let todo: Vec<_> = result.paragraphs.iter().enumerate().filter_map(|(i, p)| match p.lang {
+                    ocrtrans_core::Lang::En => Some((i, "en")), ocrtrans_core::Lang::Ja => Some((i, "ja")), _ => None,
+                }).collect();
+                if !todo.is_empty() {
+                    #[cfg(feature = "llm")]
+                    {
+                        let response = (|| -> anyhow::Result<_> {
+                            let _assets = st.model_access.read().unwrap_or_else(|e| e.into_inner());
+                            let model = models::locate(&app, "qwen3-1.7b").ok_or_else(|| anyhow::anyhow!("未安装 Qwen3 模型"))?;
+                            let mut request = crate::quality_worker::Request {
+                                model: model.join("model.gguf"), cpu: settings.llm_device == "cpu" || settings.llm_gpu_failed.is_some(),
+                                paragraphs: todo.iter().map(|(i, lang)| (lang.to_string(), result.paragraphs[*i].text.clone())).collect(),
+                                glossary: settings.glossary.clone(),
+                            };
+                            let deadline = started + std::time::Duration::from_secs(240);
+                            let progress = |done, total| stage(&format!("高质量翻译 {done}/{total} 段"));
+                            stage("正在等待或加载高质量模型…");
+                            let first_deadline = if request.cpu { deadline } else { deadline - std::time::Duration::from_secs(60) };
+                            let first = crate::quality_worker::translate(&request, first_deadline, cancelled, progress);
+                            match first {
+                                Err(e) if !request.cpu && !cancelled() && Instant::now() < deadline => {
+                                    stage("正在使用 CPU 重试…");
+                                    request.cpu = true;
+                                    let mut reply = crate::quality_worker::translate(&request, deadline, cancelled, progress)?;
+                                    reply.gpu_failure = Some(format!("自动模式失败，CPU 重试成功：{e:#}"));
+                                    Ok(reply)
                                 }
+                                other => other,
                             }
-                            used_llm = completed > 0;
-                            if completed < todo.len() { result.warnings.push(format!("{} 段改用快速翻译", todo.len() - completed)); }
+                        })();
+                        anyhow::ensure!(!cancelled(), "翻译已取消");
+                        match response {
+                            Ok(reply) => {
+                                if let Some(reason) = reply.gpu_failure {
+                                    ocrtrans_core::llm::set_gpu_blocked(Some(reason));
+                                    remember_gpu_failure(&app);
+                                }
+                                let mut completed = 0;
+                                for ((i, _), value) in todo.iter().zip(reply.translations) {
+                                    if let Some(text) = value {
+                                        let text = ocrtrans_core::translate::tidy_zh(&ocrtrans_core::translate::replace_terms(&text, &settings.glossary));
+                                        if !text.is_empty() { result.paragraphs[*i].translation = Some(text); completed += 1; }
+                                    }
+                                }
+                                used_llm = completed > 0;
+                                if completed < todo.len() { result.warnings.push(format!("{} 段改用快速翻译", todo.len() - completed)); }
+                            }
+                            Err(e) => result.warnings.push(format!("高质量翻译失败，已改用快速翻译：{e:#}")),
                         }
-                        Err(e) => result.warnings.push(format!("高质量翻译失败，已改用快速翻译：{e:#}")),
                     }
+                    #[cfg(not(feature = "llm"))]
+                    result.warnings.push("此版本未启用高质量模型，已改用快速翻译".into());
                 }
-                #[cfg(not(feature = "llm"))]
-                result.warnings.push("此版本未启用高质量模型，已改用快速翻译".into());
             }
-        }
-        anyhow::ensure!(!cancelled(), "翻译已取消");
-        st.with_fast(&app, |fast| {
             anyhow::ensure!(!cancelled(), "翻译已取消");
-            ocrtrans_core::Pipeline::finish_translation(fast, &mut result, &settings.glossary, used_llm, translation_start)
-        })?;
-        anyhow::ensure!(!cancelled(), "翻译已取消");
+            st.with_fast(&app, |fast| {
+                anyhow::ensure!(!cancelled(), "翻译已取消");
+                ocrtrans_core::Pipeline::finish_translation(fast, &mut result, &settings.glossary, used_llm, translation_start)
+            })?;
+            anyhow::ensure!(!cancelled(), "翻译已取消");
+        }
         let clean = ocrtrans_core::Pipeline::clean_background(&img.convert(), &mut result);
         let clean = image::DynamicImage::ImageRgb8(clean).into_rgba8();
         let mut pins = st.pins.lock_safe();
@@ -234,9 +244,11 @@ pub async fn pin_process(app: AppHandle, window: tauri::WebviewWindow, id: u32, 
         pin.ocr = Some(result.clone());
         pin.translated = Some(engine);
         pin.translated_glossary = settings.glossary;
-        if let Some(h) = pin.history_id {
-            let text = result.paragraphs.iter().map(|p| p.translation.as_deref().unwrap_or(&p.text)).collect::<Vec<_>>().join("\n");
-            crate::history::update_text(&app, h, &result.plain_text(), Some(&text));
+        if saved.is_none() {
+            pin.saved_translation = None;
+            if let Some(h) = pin.history_id {
+                if let Err(e) = crate::history::update_text(&app, h, &result, true) { crate::log_error(&format!("history translation: {e:#}")); }
+            }
         }
         crate::perf_log(&format!("pin {id} translate: {} ms total, {} paragraphs", started.elapsed().as_millis(), result.paragraphs.len()));
         Ok(result)
@@ -303,14 +315,13 @@ pub async fn pin_set_translation(app: AppHandle, id: u32, index: usize, text: St
     let st = state(&app);
     let mut pins = st.pins.lock_safe();
     let p = pins.get_mut(&id).ok_or("钉图已关闭")?;
-    let r = p.ocr.as_mut().ok_or("段落不存在")?;
-    r.paragraphs.get_mut(index).ok_or("段落不存在")?.translation = Some(text);
-    p.edit_revision = p.edit_revision.wrapping_add(1);
-    // keep the history entry in sync with the user's edit
+    let mut result = p.ocr.clone().ok_or("段落不存在")?;
+    result.paragraphs.get_mut(index).ok_or("段落不存在")?.translation = Some(text);
     if let Some(h) = p.history_id {
-        let tr = r.paragraphs.iter().map(|p| p.translation.clone().unwrap_or_else(|| p.text.clone())).collect::<Vec<_>>().join("\n");
-        crate::history::update_text(&app, h, &r.plain_text(), Some(&tr));
+        crate::history::update_text(&app, h, &result, true).map_err(err)?;
     }
+    p.ocr = Some(result);
+    p.edit_revision = p.edit_revision.wrapping_add(1);
     Ok(())
 }
 
@@ -366,7 +377,7 @@ pub async fn save_png(app: AppHandle, request: Request<'_>) -> CmdResult<Option<
     }
     let Some(path) = windows::with_pins_lowered(&app, || dlg.blocking_save_file()) else { return Ok(None) };
     let path = path.into_path().map_err(err)?;
-    std::fs::write(&path, png).map_err(err)?;
+    crate::atomic_file::bytes(&path, &png).map_err(err)?;
     Ok(Some(path.display().to_string()))
 }
 
@@ -534,7 +545,7 @@ pub async fn save_diagnostics(app: AppHandle, report: String) -> CmdResult<bool>
         let dialog = app.dialog().file().add_filter("Text", &["txt"]).set_file_name("OCRTrans-diagnostics.txt");
         let path = windows::with_pins_lowered(&app, || dialog.blocking_save_file());
         let Some(path) = path else { return Ok(false); };
-        std::fs::write(path.into_path().map_err(err)?, report).map_err(err)?;
+        crate::atomic_file::bytes(&path.into_path().map_err(err)?, report.as_bytes()).map_err(err)?;
         Ok(true)
     }).await.map_err(err)?
 }
@@ -583,6 +594,7 @@ pub async fn history_pin(app: AppHandle, id: u64, translate: bool) -> CmdResult<
     let pid = windows::add_pin(&app, img, item.scale, item.rect).map_err(err)?;
     if let Some(p) = state(&app).pins.lock_safe().get_mut(&pid) {
         p.history_id = Some(id);
+        if !item.translation.is_empty() || item.translations.is_some() { p.saved_translation = Some(item); }
     }
     if let Err(e) = windows::open_pin(&app, pid, translate) {
         state(&app).pins.lock_safe().remove(&pid);

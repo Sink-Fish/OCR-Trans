@@ -30,6 +30,8 @@ export interface PipelineResult {
 }
 
 export interface PinInfo {
+  has_saved_translation: boolean;
+  physical_anchor: [number, number];
   width: number;
   height: number;
   scale: number;

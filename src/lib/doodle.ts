@@ -22,6 +22,15 @@ function norm(x0: number, y0: number, x1: number, y1: number): Box {
   return { x: Math.min(x0, x1), y: Math.min(y0, y1), w: Math.abs(x1 - x0), h: Math.abs(y1 - y0) };
 }
 
+export function mosaicCovers(bbox: number[], shapes: Shape[]): boolean {
+  const [x, y, w, h] = bbox;
+  return shapes.some(s => {
+    if (s.kind !== "mosaic") return false;
+    const b = norm(s.x0, s.y0, s.x1, s.y1);
+    return x < b.x + b.w && b.x < x + w && y < b.y + b.h && b.y < y + h;
+  });
+}
+
 let measureCtx: CanvasRenderingContext2D | null = null;
 function textWidth(s: Extract<Shape, { kind: "text" }>, font: string): number {
   measureCtx ??= document.createElement("canvas").getContext("2d");

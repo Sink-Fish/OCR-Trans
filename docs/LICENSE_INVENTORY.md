@@ -17,7 +17,7 @@ OPUS-MT 的模型卡和原始发行包对许可的表述有差异。本项目保
 
 | 内容 | 许可或来源 |
 | --- | --- |
-| ONNX Runtime | MIT；另随附 Microsoft 的第三方声明 |
+| ONNX Runtime | macOS 14 及以上与 Windows 使用 1.31.0，macOS 13 使用 1.18.1；MIT，随附两个版本的 Microsoft 第三方声明 |
 | CTranslate2、llama.cpp / ggml、SentencePiece 及其依赖 | 分别保留 MIT、Apache-2.0、BSD 等上游声明；Windows 另附 Vulkan 和 SPIR-V 头文件声明 |
 | Rust 依赖 | 依据 Cargo 锁定版本生成。声明全文列出 MPL-2.0 组件的对应版本源码地址，并保留 rav1e 附带的 AOM 专利许可 |
 | 前端运行代码 | React、React DOM、scheduler、Tauri API 及所用插件的声明见全文 |

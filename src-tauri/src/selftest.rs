@@ -178,6 +178,12 @@ pub fn overlay_keys(app: &AppHandle) {
                 let lost = wait(|| windows::frontmost_other_pid(app) == before, 1000);
                 recovered = lost && wait(focused, 1600) && token(app) == original && visible(app);
                 if recovered {
+                    // Model an additional key press which the overlay did not consume.
+                    // This may veto activating the window, but the frame must remain selectable.
+                    #[cfg(target_os = "macos")]
+                    if let Some(shot) = state(app).shot.lock_safe().as_mut() {
+                        shot.input_presses = shot.input_presses.wrapping_sub(1);
+                    }
                     windows::give_focus_to(app, pid);
                 }
             }
@@ -185,7 +191,7 @@ pub fn overlay_keys(app: &AppHandle) {
         check("source app reactivated: same selection regains focus", recovered, format!("before={before:?}"));
         let source_active = wait(|| windows::frontmost_other_pid(app) == before, 1000);
         std::thread::sleep(Duration::from_millis(1400));
-        check("second source activation keeps the same selectable frame",
+        check("source reactivation after input keeps the same selectable frame",
             recovered && source_active && token(app) == original && visible(app), String::new());
         windows::overlay_cancel(app, token(app));
     }

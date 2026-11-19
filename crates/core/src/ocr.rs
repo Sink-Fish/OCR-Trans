@@ -81,7 +81,11 @@ pub fn find_ort_lib() -> Option<PathBuf> {
     if let Ok(cwd) = std::env::current_dir() {
         roots.extend(cwd.ancestors().map(|a| a.join("runtime")));
     }
-    roots.into_iter().map(|r| r.join(ORT_LIB)).find(|p| p.exists())
+    #[cfg(target_os = "macos")]
+    let name = if objc2::available!(macos = 14.0) { ORT_LIB } else { "libonnxruntime-ventura.dylib" };
+    #[cfg(not(target_os = "macos"))]
+    let name = ORT_LIB;
+    roots.into_iter().map(|r| r.join(name)).find(|p| p.exists())
 }
 
 static ORT_ENV: OnceLock<std::result::Result<Environment, String>> = OnceLock::new();
@@ -281,7 +285,15 @@ impl Ocr {
             return Ok(vec![]);
         }
         // 1. every line warped straight to the recogniser height (no full-size intermediate crop), in parallel
-        let lines: Vec<RgbImage> = par_map(quads, |q| line_image(img, q));
+        let groups = par_map(quads, |q| recognition_images(img, q));
+        let mut lines = Vec::new();
+        let mut owners = Vec::new();
+        for (id, parts) in groups.into_iter().enumerate() {
+            for (part, space_before) in parts {
+                lines.push(part);
+                owners.push((id, space_before));
+            }
+        }
         // 2. batches of similar width so little padding is computed
         let mut order: Vec<usize> = (0..lines.len()).collect();
         // widest first, so the long lines don't end up last on one worker
@@ -311,12 +323,25 @@ impl Ocr {
                 .collect();
             handles.into_iter().map(|h| h.join().unwrap_or_else(|_| Err(anyhow::anyhow!("recogniser thread panicked")))).collect()
         });
-        let mut texts = vec![(String::new(), 0f32); quads.len()];
+        let mut parts = vec![(String::new(), 0f32); lines.len()];
         for r in results {
             for (i, t) in r? {
-                texts[i] = t;
+                parts[i] = t;
             }
         }
+        let mut texts = vec![(String::new(), 0f32); quads.len()];
+        let mut lengths = vec![0usize; quads.len()];
+        for ((part, score), (id, space)) in parts.into_iter().zip(owners) {
+            let (text, confidence) = &mut texts[id];
+            if space && text.ends_with(|c: char| c.is_ascii_graphic()) && part.starts_with(|c: char| c.is_ascii_alphanumeric()) {
+                text.push(' ');
+            }
+            let len = part.chars().count();
+            *confidence += len as f32 * score;
+            lengths[id] += len;
+            text.push_str(&part);
+        }
+        for ((_, score), len) in texts.iter_mut().zip(lengths) { *score /= len.max(1) as f32; }
         Ok(texts)
     }
 
@@ -373,6 +398,50 @@ fn par_map<T: Sync, R: Send>(items: &[T], f: impl Fn(&T) -> R + Sync) -> Vec<R> 
         let hs: Vec<_> = items.chunks(chunk).map(|c| sc.spawn(|| c.iter().map(&f).collect::<Vec<R>>())).collect();
         hs.into_iter().flat_map(|h| h.join().expect("par_map worker panicked")).collect()
     })
+}
+
+/// Split exceptionally wide lines before resampling. Cut inside whitespace when possible.
+fn recognition_images(img: &RgbImage, q: &Quad) -> Vec<(RgbImage, bool)> {
+    let (w, h) = quad_size(q);
+    let ratio = if h >= w * 1.5 { h / w.max(1.0) } else { w / h.max(1.0) };
+    if ratio * REC_H as f32 <= REC_MAX_W as f32 { return vec![(line_image(img, q), false)]; }
+    let crop = crop_quad(img, q);
+    let (width, height) = crop.dimensions();
+    let target = (height * 26).max(1); // 1248 pixels at recognizer resolution
+    let mut start = 0;
+    let mut space_before = false;
+    let mut parts = Vec::new();
+    while start < width {
+        let (end, space_after) = if width - start <= target + target / 2 {
+            (width, false)
+        } else {
+            let center = start + target;
+            let mut best = (0, u32::MAX, center);
+            let mut run = 0;
+            for x in center - target / 4..=center + target / 4 {
+                let mut lo = [255; 3];
+                let mut hi = [0; 3];
+                for y in 0..height {
+                    for (i, c) in crop.get_pixel(x, y).0.into_iter().enumerate() {
+                        lo[i] = lo[i].min(c);
+                        hi[i] = hi[i].max(c);
+                    }
+                }
+                if (0..3).all(|i| hi[i] - lo[i] < 42) {
+                    run += 1;
+                    let mid = x - run / 2;
+                    if run > best.0 || (run == best.0 && mid.abs_diff(center) < best.1) { best = (run, mid.abs_diff(center), mid); }
+                } else { run = 0; }
+            }
+            (best.2, best.0 >= (height / 7).max(2))
+        };
+        let piece = imageops::crop_imm(&crop, start, 0, end - start, height);
+        let tw = ((end - start) as u64 * u64::from(REC_H)).div_ceil(u64::from(height)) as u32;
+        parts.push((imageops::resize(&*piece, tw.max(1), REC_H, imageops::FilterType::Triangle), space_before));
+        start = end;
+        space_before = space_after;
+    }
+    parts
 }
 
 /// One text line as a REC_H-high image: horizontal lines are perspective-warped directly to the target size;

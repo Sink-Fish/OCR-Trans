@@ -3819,7 +3819,7 @@ dependencies = [
 
 [[package]]
 name = "ocr-trans"
-version = "0.6.7"
+version = "0.6.8"
 dependencies = [
  "anyhow",
  "cc",
@@ -3840,6 +3840,7 @@ dependencies = [
  "tauri-plugin-dialog",
  "tauri-plugin-global-shortcut",
  "tauri-plugin-opener",
+ "tempfile",
  "tokio",
  "windows-sys 0.59.0",
 ]
@@ -3852,7 +3853,9 @@ dependencies = [
  "ct2rs",
  "image",
  "imageproc",
+ "libloading 0.8.9",
  "llama-cpp-2",
+ "objc2",
  "ort",
  "sentencepiece",
  "serde",

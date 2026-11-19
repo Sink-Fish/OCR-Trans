@@ -77,7 +77,7 @@ export default function History() {
             <button onClick={() => setConfirmClear(false)}>取消</button>
           </>
         ) : (
-          <button className="sm ghost" disabled={!items.length} onClick={() => setConfirmClear(true)}>
+          <button className="sm ghost" onClick={() => setConfirmClear(true)}>
             清空历史
           </button>
         )}

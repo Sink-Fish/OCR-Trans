@@ -88,6 +88,7 @@ pub fn run() -> Result<()> {
 }
 
 struct Worker {
+    cpu: bool,
     child: Child,
     requests: mpsc::SyncSender<Vec<u8>>,
     messages: mpsc::Receiver<Message>,
@@ -102,13 +103,14 @@ impl Drop for Worker {
 }
 
 impl Worker {
-    fn start() -> Result<Self> {
+    fn start(cpu: bool) -> Result<Self> {
         let mut command = Command::new(std::env::current_exe()?);
         command.arg("--quality-worker");
-        Self::from_command(command)
+        if cpu { command.env("GGML_METAL_DEVICES", "0"); }
+        Self::from_command(command, cpu)
     }
 
-    fn from_command(mut command: Command) -> Result<Self> {
+    fn from_command(mut command: Command, cpu: bool) -> Result<Self> {
         command
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
@@ -158,6 +160,7 @@ impl Worker {
             }
         });
         Ok(Self {
+            cpu,
             child,
             requests,
             messages,
@@ -214,8 +217,9 @@ pub fn translate(
             Err(TryLockError::WouldBlock) => std::thread::sleep(Duration::from_millis(25)),
         }
     };
+    if slot.as_ref().is_some_and(|w| w.cpu != request.cpu) { slot.take(); }
     if slot.is_none() {
-        *slot = Some(Worker::start()?);
+        *slot = Some(Worker::start(request.cpu)?);
     }
     let worker = slot.as_mut().expect("started worker");
     let result = (|| -> Result<Reply> {
@@ -249,7 +253,7 @@ mod tests {
     fn simulated(script: &str) {
         let mut cmd = Command::new("/bin/sh");
         cmd.args(["-c", script]);
-        *WORKER.lock().unwrap() = Some(Worker::from_command(cmd).unwrap());
+        *WORKER.lock().unwrap() = Some(Worker::from_command(cmd, true).unwrap());
     }
 
     #[test]

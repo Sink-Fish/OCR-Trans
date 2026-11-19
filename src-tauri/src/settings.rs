@@ -114,9 +114,21 @@ fn path(app: &AppHandle) -> Option<PathBuf> {
 }
 
 pub fn load(app: &AppHandle) -> Settings {
-    let Some(p) = path(app) else { return Settings::default() };
-    let Ok(text) = std::fs::read_to_string(&p) else { return Settings::default() };
-    match serde_json::from_str::<Settings>(&text) {
+    load_path(path(app).as_deref())
+}
+
+fn load_path(path: Option<&std::path::Path>) -> Settings {
+    let safe_defaults = || Settings { keep_history: false, ..Settings::default() };
+    let Some(p) = path else { return safe_defaults() };
+    let bytes = match std::fs::read(p) {
+        Ok(bytes) => bytes,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Settings::default(),
+        Err(e) => {
+            crate::log_error(&format!("设置读取失败，已关闭历史保存：{e}"));
+            return safe_defaults();
+        }
+    };
+    match serde_json::from_slice::<Settings>(&bytes) {
         Ok(s) => {
             let mut s = migrate(s);
             let dir = clean_models_dir(s.models_dir.as_deref(), cfg!(windows), true);
@@ -127,12 +139,11 @@ pub fn load(app: &AppHandle) -> Settings {
             s
         }
         Err(e) => {
-            // keep the unreadable file instead of silently overwriting it with defaults on the next save
-            let ts = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
-            let backup = p.with_file_name(format!("settings.broken-{ts}.json"));
-            let _ = std::fs::rename(&p, &backup);
-            eprintln!("settings: {e}; kept the old file as {}", backup.display());
-            Settings::default()
+            // Keep the original in place so another launch also fails closed.
+            let backup = p.with_extension("broken.json");
+            if !backup.exists() { let _ = crate::atomic_file::bytes(&backup, &bytes); }
+            crate::log_error(&format!("设置文件损坏，已关闭历史保存：{e}"));
+            safe_defaults()
         }
     }
 }
@@ -141,10 +152,7 @@ pub fn load(app: &AppHandle) -> Settings {
 pub fn save(app: &AppHandle, s: &Settings) -> anyhow::Result<()> {
     let p = path(app).ok_or_else(|| anyhow::anyhow!("no config dir"))?;
     std::fs::create_dir_all(p.parent().unwrap())?;
-    let tmp = p.with_extension("json.tmp");
-    std::fs::write(&tmp, serde_json::to_string_pretty(s)?)?;
-    std::fs::rename(tmp, p)?;
-    Ok(())
+    crate::atomic_file::bytes(&p, &serde_json::to_vec_pretty(s)?)
 }
 
 /// `current` with the fields in `patch` replaced (unknown fields are ignored). Windows send only what they changed,
@@ -163,6 +171,19 @@ pub fn patched(current: &Settings, patch: serde_json::Map<String, serde_json::Va
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn unreadable_settings_keep_history_off_across_restarts() {
+        let d = tempfile::tempdir().unwrap();
+        let p = d.path().join("settings.json");
+        assert!(load_path(Some(&p)).keep_history);
+        let corrupt = br#"{"keep_history":false,"history_days":"invalid"}"#;
+        std::fs::write(&p, corrupt).unwrap();
+        for _ in 0..2 { assert!(!load_path(Some(&p)).keep_history); }
+        assert_eq!(std::fs::read(&p).unwrap(), corrupt);
+        assert!(!load_path(Some(d.path())).keep_history);
+        assert!(!load_path(None).keep_history);
+    }
 
     #[test]
     fn quality_model_defaults_for_old_files() {

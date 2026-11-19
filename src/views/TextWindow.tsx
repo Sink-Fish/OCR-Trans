@@ -38,6 +38,7 @@ export default function TextWindow({ id, translated, autotest }: { id: number; t
   // the image ↔ editor link holds while the editor shows the untouched original text
   const synced = mode === "src" && map !== null && src === map.text;
 
+  const hasEdits = useRef(false);
   const translating = useRef(false);
   useEffect(() => {
     let active = true;
@@ -336,7 +337,7 @@ export default function TextWindow({ id, translated, autotest }: { id: number; t
           value={text}
           placeholder={result ? "未识别到文字" : status}
           spellCheck={false}
-          onChange={(e) => (mode === "tr" ? setTr(e.target.value) : setSrc(e.target.value))}
+          onChange={(e) => { hasEdits.current = true; (mode === "tr" ? setTr : setSrc)(e.target.value); }}
           onSelect={(e) => {
             if (!synced) return;
             const t = e.currentTarget;
@@ -349,7 +350,7 @@ export default function TextWindow({ id, translated, autotest }: { id: number; t
             onClick={async () => {
               try {
                 await api.openPin(id, mode === "tr");
-                api.closeSelf();
+                if (!hasEdits.current) api.closeSelf();
               } catch (e) {
                 flash(`钉图失败：${e}`);
               }

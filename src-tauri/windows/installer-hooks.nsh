@@ -23,7 +23,10 @@
   Pop $1
 !macroend
 
-!macro NSIS_HOOK_PREINSTALL
+; All interactive/passive maintenance pages run after MUI GUI initialization.
+; Silent installation skips the pages, so check the same prerequisite in its section.
+!define MUI_CUSTOMFUNCTION_GUIINIT OCRTransCheckRuntime
+Function OCRTransCheckRuntime
   Push $0
   !insertmacro OCRTRANS_VCREDIST_PRESENT
   ${If} $0 != 1
@@ -32,7 +35,11 @@
     ocrtrans_vcredist_abort:
     Pop $0
     SetErrorLevel 1603
-    Abort "Microsoft Visual C++ x64 runtime required (1603)."
+    Quit
   ${EndIf}
   Pop $0
+FunctionEnd
+
+!macro NSIS_HOOK_PREINSTALL
+  Call OCRTransCheckRuntime
 !macroend

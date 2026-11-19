@@ -57,15 +57,48 @@ fn install_native_logger() {
     unsafe { llama_log_set(Some(native_log), std::ptr::null_mut()) };
 }
 
+/// Probe only the bundled CPU variants. ggml validates the selected plugin's ABI
+/// and retains its own library handle. Keep our wide-path handle live until then.
+#[cfg(windows)]
+fn load_cpu_backend(dir: &Path) -> Result<()> {
+    use libloading::Library;
+    use std::ffi::{CString, c_char, c_void};
+    extern "C" { fn ggml_backend_load(path: *const c_char) -> *mut c_void; }
+    let mut best = None;
+    let mut best_score = 0;
+    for entry in std::fs::read_dir(dir)? {
+        let entry = entry?;
+        let name = entry.file_name().to_string_lossy().to_ascii_lowercase();
+        if !(name.starts_with("ggml-cpu-") && name.ends_with(".dll") || name == "ggml-cpu.dll") { continue; }
+        // Same score export and selection rule used by ggml_backend_load_best.
+        let Ok(lib) = (unsafe { Library::new(entry.path()) }) else { continue };
+        let score = unsafe { lib.get::<unsafe extern "C" fn() -> i32>(b"ggml_backend_score\0") }
+            .map(|score| unsafe { score() }).unwrap_or(i32::from(name == "ggml-cpu.dll"));
+        if score > best_score { best_score = score; best = Some((lib, name)); }
+    }
+    let (_loaded, name) = best.context("没有可用的 CPU 后端")?;
+    // LoadLibraryW reuses the already-loaded module by basename even in a Unicode installation path.
+    let name = CString::new(name)?;
+    anyhow::ensure!(!unsafe { ggml_backend_load(name.as_ptr()) }.is_null(), "CPU 后端加载失败");
+    Ok(())
+}
+
 fn backend() -> Result<&'static LlamaBackend> {
     BACKEND
         .get_or_init(|| {
             install_native_logger();
-            // Windows: load the backend libraries from the app's folder before init (see the module notes)
-            #[cfg(target_os = "windows")]
-            if let Some(dir) = std::env::current_exe().ok().and_then(|e| e.parent().map(Path::to_path_buf)) {
-                llama_cpp_2::llama_backend::load_backends_from_path(&dir);
+            let cpu_only = CPU_ONLY.load(Ordering::SeqCst) || gpu_blocked().is_some();
+            #[cfg(target_os = "macos")]
+            if cpu_only { std::env::set_var("GGML_METAL_DEVICES", "0"); }
+            #[cfg(windows)]
+            {
+                let exe = std::env::current_exe().map_err(|e| e.to_string())?;
+                let dir = exe.parent().ok_or("无法定位应用目录")?;
+                if cpu_only { load_cpu_backend(dir).map_err(|e| e.to_string())?; }
+                else { llama_cpp_2::llama_backend::load_backends_from_path(dir); }
             }
+            #[cfg(not(any(target_os = "macos", windows)))]
+            let _ = cpu_only;
             let b = LlamaBackend::init().map_err(|e| e.to_string())?;
             let cpu = crate::cpu::info();
             let (gen, batch) = crate::cpu::llm_threads();

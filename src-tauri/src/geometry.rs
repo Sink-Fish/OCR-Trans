@@ -44,6 +44,11 @@ pub fn selection_to_crop(sel: [f64; 4], origin: (f64, f64), mon_w: f64, img: (u3
     Some(Crop { px, py, pw, ph, rect: [origin.0 + x0, origin.1 + y0, pw as f64 / scale, ph as f64 / scale], scale })
 }
 
+/// Windows saved rectangles use the capturing display's scale, including in older histories.
+pub fn physical_anchor(rect: [f64; 4], scale: f32) -> [i32; 2] {
+    [rect[0], rect[1]].map(|v| (v * f64::from(scale)).round() as i32)
+}
+
 /// Index of the monitor rect ([x, y, w, h]) containing the point.
 pub fn monitor_at(rects: &[[f64; 4]], x: f64, y: f64) -> Option<usize> {
     rects.iter().position(|r| x >= r[0] && x < r[0] + r[2] && y >= r[1] && y < r[1] + r[3])
@@ -88,6 +93,15 @@ pub fn text_window_frame(sel: [f64; 4], work: [f64; 4]) -> [f64; 4] {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn overlapping_logical_windows_rects_resolve_to_distinct_physical_monitors() {
+        let screens = [[0., 0., 1920., 1080.], [1920., 0., 3840., 2160.]];
+        for (scale, expected) in [(1., 0), (2., 1)] {
+            let [x,y] = physical_anchor([1100.,100.,40.,40.], scale);
+            assert_eq!(monitor_at(&screens, f64::from(x), f64::from(y)), Some(expected));
+        }
+    }
 
     #[test]
     fn retina_2x() {

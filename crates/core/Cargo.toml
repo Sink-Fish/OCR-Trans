@@ -22,6 +22,7 @@ llama-cpp-2 = { version = "0.1.160", optional = true, default-features = false }
 [target.'cfg(target_os = "macos")'.dependencies]
 ct2rs = { version = "0.10.2", default-features = false, features = ["sentencepiece", "ruy", "accelerate"], optional = true }
 llama-cpp-2 = { version = "0.1.160", optional = true, default-features = false, features = ["metal"] }
+objc2 = "0.6"
 
 # Windows uses the same Ruy GEMM backend (int8 + float32 on x86 AVX/AVX2/AVX-512, Apache-2.0) as the base entry
 # above. Intel oneMKL would be faster but its prebuilt crate cannot be built from macOS (cross-compiling with
@@ -31,6 +32,7 @@ llama-cpp-2 = { version = "0.1.160", optional = true, default-features = false, 
 # instruction sets (SSE4.2 … AVX-512, the best one for the processor is picked; a cross build has no "native" CPU,
 # and 0.6.0 ran on plain SSE2) and Vulkan for GPUs. Needs a Vulkan SDK layout at build time (scripts/build_windows.sh).
 [target.'cfg(target_os = "windows")'.dependencies]
+libloading = { version = "0.8", optional = true }
 llama-cpp-2 = { version = "0.1.160", optional = true, default-features = false, features = ["dynamic-backends", "vulkan"] }
 
 [features]
@@ -38,4 +40,4 @@ default = ["nmt", "llm"]
 # fast tier: CTranslate2 + SentencePiece (native C++)
 nmt = ["dep:ct2rs", "dep:sentencepiece"]
 # high-quality tier: Qwen3 GGUF through llama.cpp
-llm = ["dep:llama-cpp-2"]
+llm = ["dep:llama-cpp-2", "dep:libloading"]

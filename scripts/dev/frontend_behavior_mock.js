@@ -1,6 +1,8 @@
 // Injected into the production React bundle by check_frontend_behavior.sh (real macOS WebKit).
 (() => {
   const scenario = new URLSearchParams(location.search).get("case");
+  if (scenario === "dpi") Object.defineProperty(navigator, "userAgent", {value: "Windows"});
+  let placed, monitorPoint;
   const callbacks = {};
   let callbackId = 0;
   const listeners = {};
@@ -13,6 +15,7 @@
     font_family: "sans-serif", ocr_auto_copy: false, engine: "fast", glossary: [["Pin", "钉图"]],
     onboarded: false, keep_history: true, llm_device: "auto", llm_gpu_failed: null, llm_idle_minutes: 5,
   };
+  let pinsOpened = 0;
   let writes = 0, closeCalls = 0, processCalls = 0, openedBitmaps = 0, closedBitmaps = 0;
   let modelInstalled = false;
   const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -51,10 +54,16 @@
           if (scenario === "onboarding") throw new Error("simulated disk failure");
           settings = { ...settings, ...clone(args.patch) };
           return { settings: clone(settings), errors: [] };
+        case "open_pin": pinsOpened++; return null;
         case "close_self": closeCalls++; return null;
-        case "pin_info": return { width: 320, height: 120, scale: 1, font_family: "sans-serif" };
+        case "pin_info": return { width: 320, height: 120, physical_anchor: [2200, 300], scale: scenario === "dpi" ? 2 : 1, font_family: "sans-serif" };
         case "plugin:window|scale_factor": return 1;
         case "plugin:window|outer_position": return { x: 100, y: 100 };
+        case "plugin:window|monitor_from_point":
+          monitorPoint = [args.x, args.y];
+          return {name:"right", scaleFactor:2, position:{x:1920,y:0}, size:{width:3840,height:2160},
+            workArea:{position:{x:1920,y:0},size:{width:3840,height:2100}}};
+        case "plugin:window|set_position": placed = clone(args.value); return null;
         case "plugin:window|current_monitor": return {
           name: "mock", scaleFactor: 1, position: { x: 0, y: 0 }, size: { width: 1440, height: 900 },
           workArea: { position: { x: 0, y: 25 }, size: { width: 1440, height: 875 } },
@@ -70,7 +79,7 @@
           await sleep(30);
           return {
             width: 320, height: 120, engine: args.engine === "quality" ? "llm" : "nmt", warnings: [], timings: {},
-            paragraphs: [{ bbox: [10, 10, 100, 20], lines: [], text: "Hello", translation: "你好", line_height: 20, fill: "inpaint", bg: "#ffffff", fg: "#000000", lang: "en" }],
+            paragraphs: [{ bbox: scenario === "redaction" ? [20, 85, 150, 30] : [10, 10, 100, 20], lines: [], text: "Hello", translation: "你好", line_height: 20, fill: "inpaint", bg: "#ffffff", fg: "#000000", lang: "en" }, ...(scenario === "redaction" ? [{bbox:[5,5,75,25],lines:[],text:"Visible",translation:"可见",line_height:20,bg:"#ffffff",fg:"#000000",lang:"en"}] : [])],
           };
         default: return null;
       }
@@ -138,6 +147,36 @@
         restore.click();
         await waitFor(() => document.querySelector(".snippet")?.textContent.includes("恢复的文字"), "restored list");
         result.checks.push("damaged history is visible and the recovery button restores the list");
+      } else if (scenario === "dpi") {
+        await waitFor(() => placed, "physical window placement");
+        assert(monitorPoint.join(",") === "2200,300", "looked up display using overlapping logical coordinates");
+        const stage = document.querySelector(".pin-stage");
+        assert(placed.Physical.x + parseFloat(stage.style.left) * 2 === 2200, JSON.stringify(placed));
+        result.checks.push("200% right monitor retains the original physical image anchor");
+      } else if (scenario === "redaction") {
+        await waitFor(() => document.querySelector(".pin-badge"), "translated and annotated pin");
+        document.querySelector('button[title="移动钉图（拖动）"]').click();
+        const canvas = await waitFor(() => document.querySelector(".pin-canvas.tool-move"), "move tool");
+        const rect = canvas.getBoundingClientRect();
+        canvas.dispatchEvent(new PointerEvent("pointermove", {isPrimary:true, bubbles:true, clientX:rect.left+15, clientY:rect.top+15}));
+        await waitFor(() => document.querySelector(".pin-tip")?.textContent.includes("Visible"), "unmasked control tooltip");
+        for (const x of [110, 30]) {
+          canvas.dispatchEvent(new PointerEvent("pointermove", {isPrimary:true, bubbles: true, clientX: rect.left + x, clientY: rect.top + 98}));
+          await sleep(70);
+          assert(!document.querySelector(".pin-tip"), "masked paragraph disclosed clear text");
+        }
+        result.checks.push("hover over masked and unmasked parts conceals the whole paragraph");
+      } else if (scenario === "editor") {
+        const editor = await waitFor(() => document.querySelector(".tw-text")?.value === "Hello" && document.querySelector(".tw-text"), "OCR text");
+        type(editor, "corrected source");
+        button("译文").click();
+        await waitFor(() => editor.value === "你好", "translated tab");
+        button("钉图").click();
+        await waitFor(() => pinsOpened === 1, "open pin");
+        button("原文").click();
+        await waitFor(() => editor.value === "corrected source", "original edit survives");
+        assert(closeCalls === 0, "pin closed edited window");
+        result.checks.push("pinning from the other tab preserves unsaved source edits");
       } else if (scenario === "pin") {
         await waitFor(() => document.querySelector(".pin-badge"), "initial translation");
         document.querySelector('button[title="更多"]').click();

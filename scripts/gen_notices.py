@@ -92,7 +92,7 @@ in the app. Licence of the font software (SIL Open Font License 1.1):
 """
 
 ORT = """\
-ONNX Runtime 1.31.0 (runtime/libonnxruntime.dylib on macOS, onnxruntime.dll on Windows; loaded at run time)
+ONNX Runtime 1.31.0 (macOS 14+ and Windows) and 1.18.1 (macOS 13, libonnxruntime-ventura.dylib)
 =========================================================================================================
 MIT License
 
@@ -273,6 +273,7 @@ def main():
 
     out = [read(os.path.join(ROOT, "LICENSE")), "", HEADER, MODELS, FONT + read(need(os.path.join(EXTRA, "SourceHanSans-2.005-LICENSE.txt"))), ""]
     out.append(ORT + read(need(os.path.join(EXTRA, "onnxruntime-1.31.0-ThirdPartyNotices.txt"))))
+    out.append("ONNX Runtime 1.18.1 third-party notices (macOS 13):\n" + read(need(os.path.join(EXTRA, "onnxruntime-1.18.1-ThirdPartyNotices.txt"))))
     out.append("")
 
     out.append("Native libraries compiled into the app\n======================================\n")

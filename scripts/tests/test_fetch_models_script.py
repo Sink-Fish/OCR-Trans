@@ -22,12 +22,14 @@ class ModelConversionRecovery(unittest.TestCase):
         for name in ("det.onnx", "rec.onnx", "dict.txt"):
             (self.root / "models/ocr" / name).write_text("fixture")
         (self.root / "runtime/libonnxruntime.dylib").write_text("fixture")
+        (self.root / "runtime/libonnxruntime-ventura.dylib").write_text("fixture")
         self.old_model = self.root / "models/opus-mt-en-zh/model.bin"
         self.old_model.write_text("previous model")
         self.stub("uname", 'print("Darwin" if sys.argv[1] == "-s" else "arm64")')
         self.stub("curl", 'raise RuntimeError("unexpected network request")')
         self.stub("shasum", '''
 hashes = {
+    "libonnxruntime-ventura.dylib": "cf0c4da3d0ccae9b71cc854333e716d162869a3c42f9017b142408542fcec9b7",
     "libonnxruntime.dylib": "83973572676032b4ba9418afed0b51f45599d35bb4e4628ca8ae1954c8362e31",
     "det.onnx": "4d97c44a20d30a81aad087d6a396b08f786c4635742afc391f6621f5c6ae78ae",
     "rec.onnx": "5825fc7ebf84ae7a412be049820b4d86d77620f204a041697b0494669b1742c5",

@@ -175,3 +175,29 @@ fn quality_tier_if_installed() {
     assert!(r.engine.starts_with("llm"), "engine {}", r.engine);
     assert!(r.paragraphs.iter().all(|p| p.translation.as_deref().is_some_and(has_cjk)));
 }
+
+#[test]
+fn long_4k_line_keeps_every_character() {
+    let Some(mut p) = pipeline() else { return };
+    let long = p.recognize(&image("en_long_line.png")).unwrap().plain_text();
+    let expected = concat!(
+        "On Monday the library opens at nine and closes at six. Please return borrowed books to the front desk before Friday. ",
+        "Visitors can search the online catalog or speak with a librarian about renewing a loan. The reading room is on the ",
+        "third floor. The last bus departs after sunset. The reference number for this notice is 49286. Please keep a copy for your records."
+    );
+    assert_eq!(long, expected);
+}
+
+#[test]
+fn japanese_menu_uses_context_for_kanji_only_labels() {
+    let Some(mut p) = pipeline() else { return };
+    let mut menu = p.recognize(&image("ja_menu.png")).unwrap();
+    let labels: Vec<_> = menu.paragraphs.iter().map(|p| (&p.text,p.lang)).collect();
+    assert!(labels.len() >= 6 && labels.iter().all(|(_, lang)| *lang == Lang::Ja), "{labels:?}");
+    if root().join("models/m2m100_418m/model.bin").exists() {
+        p.translate_with(&mut menu, &TranslateOptions { quality: false, glossary: vec![("切符売場".into(), "售票处".into())] }).unwrap();
+        let ticket = menu.paragraphs.iter().find(|p| p.text == "切符売場").unwrap();
+        assert_eq!(ticket.translation.as_deref(), Some("售票处"));
+        assert!(menu.paragraphs.iter().all(|p| p.translation.as_ref().is_some_and(|s| !s.is_empty() && !s.contains("__zh__"))));
+    }
+}

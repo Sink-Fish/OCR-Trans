@@ -312,7 +312,7 @@ fn group_paragraphs(img: &RgbImage, mut lines: Vec<TextLine>) -> Vec<Vec<TextLin
 }
 
 pub fn build_paragraphs(img: &RgbImage, lines: Vec<TextLine>) -> Vec<Paragraph> {
-    group_paragraphs(img, lines)
+    let mut paragraphs: Vec<_> = group_paragraphs(img, lines)
         .into_iter()
         .map(|ls| {
             let bbs: Vec<[f32; 4]> = ls.iter().map(|l| bbox(&l.quad)).collect();
@@ -335,7 +335,23 @@ pub fn build_paragraphs(img: &RgbImage, lines: Vec<TextLine>) -> Vec<Paragraph> 
                 fill: None,
             }
         })
-        .collect()
+        .collect();
+    // Short kanji labels on a Japanese menu lack kana of their own. Use a nearby
+    // Japanese heading in the same column or row; leave standalone Chinese as detected.
+    let japanese: Vec<_> = paragraphs.iter().filter(|p| p.lang == Lang::Ja).map(|p| p.bbox).collect();
+    for p in &mut paragraphs {
+        if p.lang != Lang::Zh || p.text.chars().count() > 16
+            || !p.text.chars().all(|c| matches!(c, '\u{3400}'..='\u{9fff}') || c.is_whitespace()) { continue; }
+        let [x,y,w,h] = p.bbox;
+        let nearby = japanese.iter().any(|&[jx,jy,jw,jh]| {
+            let dx = (x - jx - jw).max(jx - x - w).max(0.0);
+            let dy = (y - jy - jh).max(jy - y - h).max(0.0);
+            let unit = h.max(jh);
+            (dx < unit * 2.0 && dy < unit * 18.0) || (dy < unit && dx < unit * 12.0)
+        });
+        if nearby { p.lang = Lang::Ja; }
+    }
+    paragraphs
 }
 
 fn hex(c: [u8; 3]) -> String {

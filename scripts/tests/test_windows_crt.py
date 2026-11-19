@@ -100,11 +100,15 @@ class InstallerHookSyntax(unittest.TestCase):
             hook = hook_dir / "installer-hooks.nsh"
             shutil.copy2(ROOT / "src-tauri/windows/installer-hooks.nsh", hook)
             script = root / "check.nsi"
-            script.write_text(f'Unicode true\n!include "LogicLib.nsh"\nName "CRT check"\nOutFile "{root / "check.exe"}"\n!include "{hook}"\nSection\n!insertmacro NSIS_HOOK_PREINSTALL\nSectionEnd\n')
+            script.write_text(f'Unicode true\n!include "LogicLib.nsh"\n!include "MUI2.nsh"\nName "CRT check"\nOutFile "{root / "check.exe"}"\n!include "{hook}"\n!insertmacro MUI_PAGE_INSTFILES\n!insertmacro MUI_LANGUAGE "English"\nSection\n!insertmacro NSIS_HOOK_PREINSTALL\nSectionEnd\n')
             result = subprocess.run(["makensis", "-WX", "-V2", str(script)], capture_output=True, text=True,
                                     env=dict(os.environ, LANG="en_US.UTF-8", LC_ALL="en_US.UTF-8"))
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             self.assertTrue((root / "check.exe").is_file())
+            expanded = subprocess.check_output(["makensis", "-PPO", str(script)], text=True,
+                                               env=dict(os.environ, LANG="en_US.UTF-8", LC_ALL="en_US.UTF-8"))
+            gui_init = expanded.lower().split("function .onguiinit", 1)[1].split("functionend", 1)[0]
+            self.assertIn("ocrtranscheckruntime", gui_init)
 
 
 if __name__ == "__main__":

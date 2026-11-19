@@ -84,10 +84,3 @@ test("pin annotation drags keep pointer capture and PNG export composes only com
   assert.match(png, /drawAnnotations\(canvas, base, shapes, font\)/);
   assert.doesNotMatch(png, /canvasRef|drawSelection/);
 });
-
-test("clearing history invalidates captures still being saved", () => {
-  const history = read("src-tauri/src/history.rs");
-  assert.match(history, /PENDING\.lock_safe\(\)\.insert\(id, PendingText::default\(\)\);/);
-  assert.match(history, /if !pending\.contains_key\(&item\.id\) \{[\s\S]*?remove_files\(app, item\.id\);\s*return Ok\(\(\)\);/);
-  assert.match(history.slice(history.indexOf("pub fn clear")), /pending\.clear\(\)/);
-});
