@@ -161,11 +161,11 @@ pub fn overlay_keys(app: &AppHandle) {
     {
         let first_token = state(app).next_id.load(std::sync::atomic::Ordering::Relaxed);
         ORDER_OUT_NEXT_OVERLAY.store(true, std::sync::atomic::Ordering::SeqCst);
-        let up = capture(app);
+        windows::start_capture(app, Mode::Select);
+        let up = wait(|| token(app).is_some_and(|t| t != first_token) && ready(app) && visible(app), 4000);
         let replacement = token(app);
         check("offscreen painted window is replaced on the same capture request",
-            up && replacement.is_some_and(|t| t != first_token),
-            format!("initial={first_token}, onscreen={replacement:?}"));
+            up, format!("initial={first_token}, replacement={replacement:?}"));
         windows::overlay_cancel(app, replacement);
     }
 

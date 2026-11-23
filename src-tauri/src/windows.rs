@@ -26,7 +26,10 @@ mod mac {
         use objc2::{msg_send, runtime::AnyObject};
         let Ok(ptr) = w.ns_window() else { return false };
         unsafe {
-            let number: isize = msg_send![ptr as *mut AnyObject, windowNumber];
+            let ns = ptr as *mut AnyObject;
+            let ordered: bool = msg_send![ns, isVisible];
+            if !ordered { return false; }
+            let number: isize = msg_send![ns, windowNumber];
             ocr_window_is_onscreen(number)
         }
     }
@@ -576,8 +579,9 @@ fn guard_overlay(app: &AppHandle, token: u32, was_key: bool, _allow_rebuild: boo
             let foreign = f.frontmost > 0 && f.frontmost != me && f.frontmost != before;
             #[cfg(target_os = "macos")]
             if ready && !confirmed_onscreen && !f.hidden && !foreign {
+                let settled = t0.elapsed() >= std::time::Duration::from_millis(400);
                 if !overlay_onscreen(&app) {
-                    if t0.elapsed() < std::time::Duration::from_millis(400) { continue; }
+                    if !settled { continue; }
                     if let Err(e) = rebuild_offscreen_overlay(&app, token, _allow_rebuild) {
                         if overlay_cancel(&app, Some(token)) {
                             crate::log_error(&format!("offscreen overlay {token}: {e:#}"));
@@ -587,8 +591,11 @@ fn guard_overlay(app: &AppHandle, token: u32, was_key: bool, _allow_rebuild: boo
                     }
                     continue;
                 }
-                confirmed_onscreen = true;
-                crate::log_info(&format!("overlay {token} confirmed onscreen by WindowServer"));
+                // Space transitions can show the old desktop for a compositor frame.
+                if settled {
+                    confirmed_onscreen = true;
+                    crate::log_info(&format!("overlay {token} confirmed onscreen by WindowServer"));
+                }
             }
             #[cfg(target_os = "macos")]
             if !f.active && before > 0 && f.frontmost == before {
