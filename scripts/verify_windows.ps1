@@ -1,6 +1,6 @@
 param([string]$AppPath, [string]$ModelsDir, [string]$Screenshot, [switch]$FastOnly,
       [string]$OutputDir = (Join-Path ([Environment]::GetFolderPath('Desktop')) 'OCRTrans-release-check'),
-      [string]$ExpectedVersion = '0.6.8')
+      [string]$ExpectedVersion = '0.6.9')
 $ErrorActionPreference = 'Stop'
 if (!$AppPath) {
     $running = Get-Process -Name ocr-trans -ErrorAction SilentlyContinue | Select-Object -First 1

@@ -47,8 +47,15 @@ fn ready(app: &AppHandle) -> bool {
 }
 
 fn visible(app: &AppHandle) -> bool {
+    #[cfg(target_os = "macos")]
+    return windows::overlay_onscreen(app);
+    #[cfg(not(target_os = "macos"))]
     app.get_webview_window("overlay").and_then(|w| w.is_visible().ok()).unwrap_or(false)
 }
+
+/// Exercise the real WindowServer check by ordering out a just-painted native window.
+#[cfg(target_os = "macos")]
+pub(crate) static ORDER_OUT_NEXT_OVERLAY: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
 /// No capture left and no overlay on screen, nothing being captured.
 fn gone(app: &AppHandle) -> bool {
@@ -149,6 +156,18 @@ pub fn overlay_keys(app: &AppHandle) {
     let g = wait(|| gone(app), 1500);
     let (ok, d) = none_held(app);
     check("Esc: overlay gone, no plain key held", g && ok, d);
+
+    #[cfg(target_os = "macos")]
+    {
+        let first_token = state(app).next_id.load(std::sync::atomic::Ordering::Relaxed);
+        ORDER_OUT_NEXT_OVERLAY.store(true, std::sync::atomic::Ordering::SeqCst);
+        let up = capture(app);
+        let replacement = token(app);
+        check("offscreen painted window is replaced on the same capture request",
+            up && replacement.is_some_and(|t| t != first_token),
+            format!("initial={first_token}, onscreen={replacement:?}"));
+        windows::overlay_cancel(app, replacement);
+    }
 
     // 2b. …and the keyboard goes back to the app the user was in (Finder stands in for it), not to our windowless app
     if let Some(finder) = std::process::Command::new("pgrep").args(["-x", "Finder"]).output().ok().and_then(|o| String::from_utf8_lossy(&o.stdout).trim().parse::<i32>().ok()) {

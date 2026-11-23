@@ -6,9 +6,9 @@ OCR Trans 是适用于 macOS 和 Windows 的离线截图识字与翻译工具。
 
 ## 安装
 
-当前版本为 **0.6.8（GPL-3.0-only）**，提供 macOS 和 Windows 安装包。
+当前版本为 **0.6.9（GPL-3.0-only）**，提供 macOS 和 Windows 安装包。
 
-[下载 macOS 0.6.8 安装包](https://github.com/Sink-Fish/OCR-Trans/releases/download/v0.6.8/OCR-Trans_0.6.8_arm64.dmg) · [下载 Windows 0.6.8 安装包](https://github.com/Sink-Fish/OCR-Trans/releases/download/v0.6.8/OCR-Trans_0.6.8_x64-setup.exe) · [发布说明、对应源码与 SHA-256 校验文件](https://github.com/Sink-Fish/OCR-Trans/releases/tag/v0.6.8)
+[下载 macOS 0.6.9 安装包](https://github.com/Sink-Fish/OCR-Trans/releases/download/v0.6.9/OCR-Trans_0.6.9_arm64.dmg) · [下载 Windows 0.6.9 安装包](https://github.com/Sink-Fish/OCR-Trans/releases/download/v0.6.9/OCR-Trans_0.6.9_x64-setup.exe) · [发布说明、对应源码与 SHA-256 校验文件](https://github.com/Sink-Fish/OCR-Trans/releases/tag/v0.6.9)
 
 | 平台 | 安装文件 | 首次使用 |
 | --- | --- | --- |
@@ -45,7 +45,7 @@ python3 -m unittest discover -s scripts/tests
 
 ### 发布版本的对应源码
 
-[0.6.8 发布页](https://github.com/Sink-Fish/OCR-Trans/releases/tag/v0.6.8)提供固定提交的应用源码 ZIP、Cargo 依赖源码、前端运行时与上游源码、`SOURCE-SUPPLY.md` 和校验清单。ONNX Runtime 的固定源码、子模块及外部依赖获取方法见该说明。源码获取可能需要联网。
+[0.6.9 发布页](https://github.com/Sink-Fish/OCR-Trans/releases/tag/v0.6.9)提供固定提交的应用源码 ZIP、Cargo 依赖源码、前端运行时与上游源码、`SOURCE-SUPPLY.md` 和校验清单。ONNX Runtime 的固定源码、子模块及外部依赖获取方法见该说明。源码获取可能需要联网。
 
 Cargo 源包内的 `ot66-vendor-config.txt` 是配置示例：使用时将 `[source.vendored-sources]` 的 `directory` 改为你解压后 `cargo` 目录的实际路径，不要直接沿用构建机路径。双端构建方式及测试结果见对应版本发布页。
 

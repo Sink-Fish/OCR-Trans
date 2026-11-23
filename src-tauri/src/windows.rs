@@ -16,9 +16,19 @@ use crate::state::{state, LockExt, Mode, Pin, Shot};
 mod mac {
     extern "C" {
         fn ocr_input_presses() -> u64;
+        fn ocr_window_is_onscreen(number: isize) -> bool;
     }
     pub fn input_presses() -> u64 {
         unsafe { ocr_input_presses() }
+    }
+
+    pub fn is_onscreen(w: &tauri::WebviewWindow) -> bool {
+        use objc2::{msg_send, runtime::AnyObject};
+        let Ok(ptr) = w.ns_window() else { return false };
+        unsafe {
+            let number: isize = msg_send![ptr as *mut AnyObject, windowNumber];
+            ocr_window_is_onscreen(number)
+        }
     }
 
     #[link(name = "CoreGraphics", kind = "framework")]
@@ -141,20 +151,21 @@ mod mac {
         }
     }
 
-    /// Put a window above the menu bar / Dock and on every Space (incl. full-screen apps).
+    /// Pins follow all Spaces. Each new selection belongs on the user's active Space.
     pub fn raise_level(w: &tauri::WebviewWindow, level: isize) {
         use objc2::msg_send;
         use objc2::runtime::AnyObject;
         use objc2_app_kit::{NSWindowAnimationBehavior, NSWindowCollectionBehavior as Behavior};
         if let Ok(ptr) = w.ns_window() {
             let ns = ptr as *mut AnyObject;
-            let mut behavior = Behavior::CanJoinAllSpaces | Behavior::FullScreenAuxiliary | Behavior::Stationary;
+            let common = Behavior::FullScreenAuxiliary | Behavior::Stationary;
             unsafe {
-                if w.label() == "overlay" {
-                    // The screenshot belongs above the foreground app's full-screen Space or Stage Manager set.
-                    behavior |= Behavior::CanJoinAllApplications;
+                let behavior = if w.label() == "overlay" {
                     let _: () = msg_send![ns, setAnimationBehavior: NSWindowAnimationBehavior::None];
-                }
+                    common | Behavior::MoveToActiveSpace | Behavior::CanJoinAllApplications
+                } else {
+                    common | Behavior::CanJoinAllSpaces
+                };
                 let _: () = msg_send![ns, setLevel: level];
                 let _: () = msg_send![ns, setCollectionBehavior: behavior];
             }
@@ -327,12 +338,12 @@ fn capture_and_show(app: &AppHandle, mode: Mode, started: std::time::Instant, cu
         {
             return Err(anyhow!("截图期间已切换到其他应用，请重试"));
         }
-        present_frame(app, &w, frame, mode, started, capture_ms)
+        present_frame(app, &w, frame, mode, started, capture_ms, true)
     }).ok_or_else(|| anyhow!("截图界面没有响应"))?
 }
 
 /// Install a frame and its display geometry together on the UI thread.
-fn present_frame(app: &AppHandle, w: &WebviewWindow, frame: Frame, mode: Mode, started: std::time::Instant, capture_ms: u128) -> Result<()> {
+fn present_frame(app: &AppHandle, w: &WebviewWindow, frame: Frame, mode: Mode, started: std::time::Instant, capture_ms: u128, allow_rebuild: bool) -> Result<()> {
     let needs_activation = !w.is_visible()?;
     let monitor = &frame.monitor;
     let raw = frame.raw;
@@ -347,6 +358,10 @@ fn present_frame(app: &AppHandle, w: &WebviewWindow, frame: Frame, mode: Mode, s
         w.set_size(LogicalSize::new(monitor.width as f64, monitor.height as f64))?;
         w.set_position(LogicalPosition::new(monitor.x as f64, monitor.y as f64))?;
     }
+    #[cfg(target_os = "macos")]
+    mac::raise_level(w, 1000);
+    // Showing the native window can fail. Keep the previous token until the replacement is ordered.
+    if needs_activation { w.show()?; }
     let st = state(app);
     let token = st.next_id.fetch_add(1, Ordering::Relaxed);
     {
@@ -358,13 +373,7 @@ fn present_frame(app: &AppHandle, w: &WebviewWindow, frame: Frame, mode: Mode, s
             input_presses: mac::input_presses(),
         });
     }
-    #[cfg(target_os = "macos")]
-    mac::raise_level(w, 1000);
-    // A hidden page may be throttled. Request keyboard focus when the frame is ready.
-    if needs_activation {
-        w.show()?;
-    }
-    guard_overlay(app, token, !needs_activation);
+    guard_overlay(app, token, !needs_activation, allow_rebuild);
     if let Some(payload) = overlay_payload(app) {
         app.emit_to("overlay", "overlay-start", payload)?;
     }
@@ -423,7 +432,7 @@ fn capture_other_monitor(app: &AppHandle, token: u32, cursor: (f64, f64)) -> Res
             .filter(|s| s.token == token && s.ready && !s.interacting && s.frame.raw != frame.raw)
             .map(|s| s.mode);
         if let Some(mode) = mode {
-            present_frame(app, &w, frame, mode, started, capture_ms)?;
+            present_frame(app, &w, frame, mode, started, capture_ms, true)?;
         }
         Ok(())
     }).ok_or_else(|| anyhow!("截图界面没有响应"))?
@@ -446,6 +455,61 @@ pub(crate) fn overlay_payload(app: &AppHandle) -> Option<serde_json::Value> {
 /// Dev hook for the self-test (selftest.rs): the next capture fails after taking the screenshot.
 pub static FAIL_NEXT_CAPTURE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
+#[cfg(target_os = "macos")]
+pub(crate) fn overlay_onscreen(app: &AppHandle) -> bool {
+    let Some(w) = app.get_webview_window("overlay") else { return false };
+    crate::on_main_thread(app, move |_| mac::is_onscreen(&w)).unwrap_or(false)
+}
+
+#[cfg(target_os = "macos")]
+fn can_rebuild_overlay(app: &AppHandle, w: &WebviewWindow, token: u32) -> bool {
+    let f = mac::focus_detail(w);
+    let before = FOCUS_BEFORE.load(Ordering::SeqCst);
+    !f.hidden && (f.frontmost == std::process::id() as i32 || (before > 0 && f.frontmost == before))
+        && state(app).shot.lock_safe().as_ref().is_some_and(|s|
+            s.token == token && !s.interacting && s.input_presses == mac::input_presses())
+}
+
+/// A cached NSWindow can stay bound to an obsolete Space even after AppKit orders it front.
+/// Replace that native window once, using the original frozen pixels. Every UI mutation
+/// checks the token so a newer hotkey, an actual app switch or Escape wins the race.
+#[cfg(target_os = "macos")]
+fn rebuild_offscreen_overlay(app: &AppHandle, token: u32, allow_rebuild: bool) -> Result<()> {
+    let retired = crate::on_main_thread(app, move |app| -> Result<bool> {
+        let Some(w) = app.get_webview_window("overlay") else { return Ok(false) };
+        if !state(app).shot.lock_safe().as_ref().is_some_and(|s| s.token == token) || mac::is_onscreen(&w) {
+            return Ok(false);
+        }
+        if !can_rebuild_overlay(app, &w, token) {
+            overlay_cancel(app, Some(token));
+            return Ok(false);
+        }
+        w.destroy()?;
+        anyhow::ensure!(allow_rebuild, "重建后截图窗口仍未出现在当前桌面");
+        Ok(true)
+    }).ok_or_else(|| anyhow!("截图界面没有响应"))??;
+    if !retired { return Ok(()); }
+    crate::log_info(&format!("overlay {token} painted offscreen; rebuilding on the active Space"));
+    // Tauri removes the destroyed window from its registry on the next event-loop turn.
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(1);
+    while app.get_webview_window("overlay").is_some() {
+        if !state(app).shot.lock_safe().as_ref().is_some_and(|s| s.token == token) { return Ok(()); }
+        anyhow::ensure!(std::time::Instant::now() < deadline, "无法重建截图窗口");
+        std::thread::sleep(std::time::Duration::from_millis(20));
+    }
+    crate::on_main_thread(app, move |app| -> Result<()> {
+        let shot = state(app).shot.lock_safe().as_ref().filter(|s| s.token == token)
+            .map(|s| (s.frame.clone(), s.mode, s.started, s.capture_ms));
+        let Some((frame, mode, started, capture_ms)) = shot else { return Ok(()) };
+        let w = overlay_window(app)?;
+        if !can_rebuild_overlay(app, &w, token) {
+            overlay_cancel(app, Some(token));
+            return Ok(());
+        }
+        present_frame(app, &w, frame, mode, started, capture_ms, false)
+    }).ok_or_else(|| anyhow!("截图界面没有响应"))?
+}
+
 /// A stalled page, explicitly hiding the app, or a different foreground app can end a capture.
 /// On macOS the source app can regain activation while the overlay is still visible and accepts a drag.
 ///
@@ -456,12 +520,14 @@ pub static FAIL_NEXT_CAPTURE: std::sync::atomic::AtomicBool = std::sync::atomic:
 /// sit invisible behind it. In 0.5.6 that was macOS's own confirmation to keep allowing screen recording (asked
 /// again from time to time for apps that capture the screen directly): it took the focus, could neither be seen
 /// nor answered, and every following capture asked again.
-fn guard_overlay(app: &AppHandle, token: u32, was_key: bool) {
+fn guard_overlay(app: &AppHandle, token: u32, was_key: bool, _allow_rebuild: bool) {
     let app = app.clone();
     let before = FOCUS_BEFORE.load(Ordering::SeqCst);
     let me = std::process::id() as i32;
     #[cfg(target_os = "macos")]
     let mut retried_source = false;
+    #[cfg(target_os = "macos")]
+    let mut confirmed_onscreen = false;
     std::thread::spawn(move || {
         let t0 = std::time::Instant::now();
         let (mut was_key, mut lost, mut retried) = (was_key, 0, false);
@@ -508,6 +574,22 @@ fn guard_overlay(app: &AppHandle, token: u32, was_key: bool) {
                 seen = Some(f);
             }
             let foreign = f.frontmost > 0 && f.frontmost != me && f.frontmost != before;
+            #[cfg(target_os = "macos")]
+            if ready && !confirmed_onscreen && !f.hidden && !foreign {
+                if !overlay_onscreen(&app) {
+                    if t0.elapsed() < std::time::Duration::from_millis(400) { continue; }
+                    if let Err(e) = rebuild_offscreen_overlay(&app, token, _allow_rebuild) {
+                        if overlay_cancel(&app, Some(token)) {
+                            crate::log_error(&format!("offscreen overlay {token}: {e:#}"));
+                            show_toast(&app, "截图窗口未能显示在当前桌面，请重试", "error");
+                        }
+                        return;
+                    }
+                    continue;
+                }
+                confirmed_onscreen = true;
+                crate::log_info(&format!("overlay {token} confirmed onscreen by WindowServer"));
+            }
             #[cfg(target_os = "macos")]
             if !f.active && before > 0 && f.frontmost == before {
                 // A key press, click or pointer movement can rule out taking the keyboard
@@ -783,12 +865,16 @@ pub fn overlay_ready(app: &AppHandle, token: Option<u32>, timings: Option<(f64, 
             s.ready = true;
             let (fetch, paint) = timings.unwrap_or_default();
             let timing = format!(
-                "hotkey→overlay visible {} ms (capture {} ms, page fetch {:.0} ms, paint {:.0} ms, {}x{})",
+                "hotkey→overlay painted {} ms (capture {} ms, page fetch {:.0} ms, paint {:.0} ms, {}x{})",
                 s.started.elapsed().as_millis(), s.capture_ms, fetch, paint, s.frame.image.width(), s.frame.image.height()
             );
             (s.token, timing)
         };
         focus_overlay(app, token);
+        #[cfg(target_os = "macos")]
+        if crate::selftest::ORDER_OUT_NEXT_OVERLAY.swap(false, Ordering::SeqCst) {
+            if let Some(w) = app.get_webview_window("overlay") { let _ = w.hide(); }
+        }
         Some(timing)
     }).ok_or_else(|| anyhow!("截图界面没有响应"))?;
     if let Some(timing) = timing {

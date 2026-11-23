@@ -1,5 +1,14 @@
 #import <ScreenCaptureKit/ScreenCaptureKit.h>
 
+// A key, ordered NSWindow may still belong to a disconnected display's Space.
+// Ask the compositor about this one window without enumerating other apps.
+bool ocr_window_is_onscreen(intptr_t number) {
+    if (number <= 0) return false;
+    NSArray<NSDictionary *> *rows = CFBridgingRelease(
+        CGWindowListCopyWindowInfo(kCGWindowListOptionIncludingWindow, (CGWindowID)number));
+    return [rows.firstObject[(__bridge NSString *)kCGWindowIsOnscreen] boolValue];
+}
+
 // A change means that the user may have deliberately switched apps. Read counts
 // only; no event tap, key contents or extra input-monitoring permission is needed.
 uint64_t ocr_input_presses(void) {
